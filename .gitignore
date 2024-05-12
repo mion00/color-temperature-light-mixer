@@ -1,0 +1,7 @@
+data
+
+# Python
+.venv
+
+# VSCode settings
+.vscode
