@@ -1,0 +1,15 @@
+{
+    "domain": "cct_virtual_light",
+    "name": "CCT virtual light",
+    "codeowners": [
+        "@mion00"
+    ],
+    "integration_type": "device",
+    "config_flow": false,
+    "dependencies": [],
+    "documentation": "https://github.com/mion00/cct-virtual-light",
+    "iot_class": "calculated",
+    "issue_tracker": "https://github.com/mion00/cct-virtual-light/issues",
+    "requirements": [],
+    "version": "0.0.0"
+}

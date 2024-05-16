@@ -1,6 +1,6 @@
 {
-    "name": "Integration blueprint",
-    "filename": "integration_blueprint.zip",
+    "name": "CCT virtual light",
+    "filename": "cct_virtual_light.zip",
     "hide_default_branch": true,
     "homeassistant": "2024.4.0",
     "render_readme": true,

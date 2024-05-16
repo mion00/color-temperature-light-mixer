@@ -3,6 +3,122 @@ default_config:
 
 # https://www.home-assistant.io/integrations/logger/
 logger:
-  default: info
+  default: critical
   logs:
-    custom_components.integration_blueprint: debug
+    custom_components.cct_virtual_light.sensor: debug
+    # homeassistant.components.light: debug
+
+light:
+  - platform: cct_virtual_light
+    name: CCT
+    warm_light:
+      entity_id: light.warm_white
+      color_temp_kelvin: 3000
+    cold_light:
+      entity_id: light.cold_white
+      color_temp_kelvin: 6000
+
+    # Fake light based on input below
+  - platform: template
+    lights:
+      warm_white:
+        friendly_name: Warm
+        value_template: "{{ states('input_boolean.warm_white_on') }}"
+        level_template: "{{ states('input_number.warm_white_brightness') | int }}"
+        temperature_template: 333
+
+        turn_on:
+          - if:
+              - condition: template
+                value_template: "{{ brightness is defined | default(False) }}"
+            then:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.warm_white_brightness
+                data:
+                  value: "{{ brightness }}"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.warm_white_on
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.warm_white_on
+        set_level:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.warm_white_brightness
+            data:
+              value: "{{ brightness }}"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.warm_white_on
+
+      cold_white:
+        friendly_name: Cold
+        value_template: "{{ states('input_boolean.cold_white_on') }}"
+        level_template: "{{ states('input_number.cold_white_brightness') | int }}"
+        temperature_template: 166
+
+        turn_on:
+          - if:
+              - condition: template
+                value_template: "{{ brightness is defined | default(False) }}"
+            then:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.cold_white_brightness
+                data:
+                  value: "{{ brightness }}"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cold_white_on
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.cold_white_on
+        set_level:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.cold_white_brightness
+            data:
+              value: "{{ brightness }}"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cold_white_on
+
+# Helper inputs
+input_number:
+  warm_white_brightness:
+    min: 1
+    max: 255
+    step: 1
+  cold_white_brightness:
+    min: 1
+    max: 255
+    step: 1
+
+input_boolean:
+  warm_white_on:
+  cold_white_on:
+
+sensor:
+  - platform: cct_virtual_light
+    sensor_type: brightness
+    name: brightness
+    warm_light:
+      entity_id: light.warm_white
+      color_temp_kelvin: 3000
+    cold_light:
+      entity_id: light.cold_white
+      color_temp_kelvin: 6000
+
+  - platform: cct_virtual_light
+    sensor_type: temperature
+    name: temperature
+    warm_light:
+      entity_id: light.warm_white
+      color_temp_kelvin: 3000
+    cold_light:
+      entity_id: light.cold_white
+      color_temp_kelvin: 6000
