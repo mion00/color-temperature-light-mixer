@@ -32,15 +32,10 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.dispatcher import (
-    async_dispatcher_connect,
-    async_dispatcher_send,
-)
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import (
     CONF_COLD_LIGHT,
@@ -162,19 +157,25 @@ class CCTVirtualLight(LightEntity):
 
     @property
     def is_on(self) -> bool | None:
-        # _LOGGER.debug("Checking if light is on")
+        # _LOGGER.debug("%s: checking if light is on", self._friendly_name_internal())
 
-        is_warm_on = self.hass.states.get(self.warm_light[ATTR_ENTITY_ID])
-        is_cold_on = self.hass.states.get(self.cold_light[ATTR_ENTITY_ID])
+        warm_light_state = self.hass.states.get(self.warm_light[ATTR_ENTITY_ID])
+        cold_light_state = self.hass.states.get(self.cold_light[ATTR_ENTITY_ID])
+
+        is_warm_on = warm_light_state and warm_light_state.state == STATE_ON
+        is_cold_on = cold_light_state and cold_light_state.state == STATE_ON
+
+        # If both lights are off -> we are also off, so fire the event to save our state
+        if not is_warm_on and not is_cold_on:
+            # _LOGGER.debug("%s: light is off", self._friendly_name_internal())
+            self._fire_turn_off_signal()
 
         # Light is on if either one of the two lights is on
-        return (is_warm_on and is_warm_on.state == STATE_ON) or (
-            is_cold_on and is_cold_on.state == STATE_ON
-        )
+        return is_warm_on or is_cold_on
 
     @property
     def brightness(self) -> int | None:
-        _LOGGER.debug("%s: updating brightness", self._friendly_name_internal())
+        # _LOGGER.debug("%s: computing brightness", self._friendly_name_internal())
 
         brightnesses = self._get_brightnesses()
 
@@ -264,17 +265,7 @@ class CCTVirtualLight(LightEntity):
     async def async_turn_off(self, **kwargs):
         """Turn the light off"""
 
-        # Fire a custom signal to keep track of the brightness and temperature before shutting down
-        signal_data = {
-            CONF_UNIQUE_ID: self.unique_id,
-            ATTR_ENTITY_ID: self.entity_id,
-            ATTR_BRIGHTNESS: self.brightness,
-            ATTR_COLOR_TEMP_KELVIN: self.color_temp_kelvin,
-        }
-        _LOGGER.debug(
-            "%s: turn off light, firing signal", self._friendly_name_internal()
-        )
-        async_dispatcher_send(self.hass, DISPATCHER_SIGNAL_TURN_OFF, signal_data)
+        self._fire_turn_off_signal()
 
         target = {
             ATTR_ENTITY_ID: [
@@ -286,6 +277,21 @@ class CCTVirtualLight(LightEntity):
         await self.hass.services.async_call(
             DOMAIN_LIGHT, SERVICE_TURN_OFF, target=target
         )
+
+    def _fire_turn_off_signal(self):
+        """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off"""
+        # Check that we have a value for both brigthness and temperature before firing the signal
+        if self.brightness is None or self.color_temp_kelvin is None:
+            return
+
+        signal_data = {
+            CONF_UNIQUE_ID: self.unique_id,
+            ATTR_ENTITY_ID: self.entity_id,
+            ATTR_BRIGHTNESS: self.brightness,
+            ATTR_COLOR_TEMP_KELVIN: self.color_temp_kelvin,
+        }
+        _LOGGER.debug("%s: firing turn off signal", self._friendly_name_internal())
+        async_dispatcher_send(self.hass, DISPATCHER_SIGNAL_TURN_OFF, signal_data)
 
     async def async_added_to_hass(self):
         """Subscribe to state change events from the two source lights"""
@@ -317,9 +323,6 @@ class CCTVirtualLight(LightEntity):
     async def on_real_lights_state_changed(self, event: Event[EventStateChangedData]):
         """Callback for when any of the monitored light changes state"""
         self.async_schedule_update_ha_state()
-
-    async def async_update(self):
-        _LOGGER.debug("udpate called")
 
     def _get_brightnesses(self) -> list[int] | None:
         """Extract from the state of the lights their brightness value, checking for None and falling back to value 0.
