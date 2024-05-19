@@ -2,17 +2,22 @@
     "config": {
         "step": {
             "user": {
-                "description": "If you need help with the configuration have a look here: https://github.com/ludeeus/integration_blueprint",
+                "description": "Create a new (virtual) light by combining two existing lights",
                 "data": {
-                    "username": "Username",
-                    "password": "Password"
-                }
+                    "name": "Name",
+                    "warm_light_entity_id": "Warm light",
+                    "warm_light_color_temp_kelvin": "Warm light color temperature (K)",
+                    "cold_light_entity_id": "Cold light",
+                    "cold_light_color_temp_kelvin": "Cold light color temperature (K)"
+                },
+                "data_description": {
+                  "name": "The name of the virtual light",
+                  "warm_light_entity_id": "Choose the light acting as the warmer light source (yellow-ish color)",
+                  "warm_light_color_temp_kelvin": "Color temperature in Kelvin of the warm light source",
+                  "cold_light_entity_id": "Choose the light acting as the colder light source (blu-ish color)",
+                  "cold_light_color_temp_kelvin": "Color temperature in Kelvin of the cold light source"
+              }
             }
-        },
-        "error": {
-            "auth": "Username/Password is wrong.",
-            "connection": "Unable to connect to the server.",
-            "unknown": "Unknown error occurred."
         }
     }
 }

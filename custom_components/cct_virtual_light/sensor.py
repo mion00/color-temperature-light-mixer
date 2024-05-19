@@ -3,92 +3,105 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal, Mapping, Optional
 
+from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
 from homeassistant.components.sensor import RestoreSensor, SensorEntityDescription
+from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
-    CONF_BRIGHTNESS,
+    CONF_BRIGHTNESS as BRIGHTNESS,
     CONF_NAME,
     CONF_SENSOR_TYPE,
+    CONF_UNIQUE_ID,
+    EVENT_STATE_CHANGED,
+    TEMPERATURE,
+    EntityCategory,
 )
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_COLD_LIGHT, CONF_WARM_LIGHT, DOMAIN
+from .const import (
+    BRIGHTNESS_SENSOR_NAME,
+    CONF_COLD_LIGHT,
+    CONF_WARM_LIGHT,
+    DISPATCHER_SIGNAL_TURN_OFF,
+    DOMAIN,
+    TEMPERATURE_SENSOR_NAME,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
-ENTITY_DESCRIPTIONS = (
-    SensorEntityDescription(
-        key=DOMAIN,
-    ),
-)
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_devices: AddEntitiesCallback
+):
+    """Set up the sensor platform from a ConfigEntry"""
+    # config = entry.as_dict()["data"]
+
+    brightness = CCTRestoreSensor(
+        config_id=entry.entry_id,
+        name=BRIGHTNESS_SENSOR_NAME,
+        monitored_value=BRIGHTNESS,
+    )
+    temperature = CCTRestoreSensor(
+        config_id=entry.entry_id,
+        name=TEMPERATURE_SENSOR_NAME,
+        monitored_value=ATTR_COLOR_TEMP_KELVIN,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        unit_of_measurement="K",
+    )
+
+    sensors = [brightness, temperature]
+
+    async_add_devices(sensors)
 
 
-async def async_setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the CCT plattform sensors"""
-
-    _LOGGER.debug(config)
-    if config[CONF_SENSOR_TYPE] == "brightness":
-        _LOGGER.debug("Setting up %s platform brightness sensor", DOMAIN)
-        brightness_sensor = CCTBrightnessSensor(
-            entity_description=ENTITY_DESCRIPTIONS[0],
-            name=config[CONF_NAME],
-            warm_light=config[CONF_WARM_LIGHT],
-            cold_light=config[CONF_COLD_LIGHT],
-        )
-
-        # Add devices
-        async_add_entities((brightness_sensor,))
+SUPPORTED_MONITORED_VALUES = Literal["brightness", "color_temp_kelvin"]
 
 
-# async def async_setup_entry(hass, entry, async_add_devices):
-#     """Set up the sensor platform."""
-#     coordinator = hass.data[DOMAIN][entry.entry_id]
-#     async_add_devices(
-#         CCTBrightnessSensor(
-#             entity_description=entity_description,
-#             name="Brightness"
-#         )
-#         for entity_description in ENTITY_DESCRIPTIONS
-#     )
-
-
-class CCTBrightnessSensor(RestoreSensor):
-    """integration_blueprint Sensor class."""
+class CCTRestoreSensor(RestoreSensor):
+    """Restorable virtual sensor tracking the last state of a CCT light before turning off"""
 
     _attr_has_entity_name = True
-    _attr_device_class = None
     _attr_should_poll = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_visible_default = False
 
     def __init__(
         self,
-        entity_description: SensorEntityDescription,
+        config_id: str,
         name: str,
-        warm_light: dict[str, Any],
-        cold_light: dict[str, Any],
+        monitored_value: SUPPORTED_MONITORED_VALUES,
+        device_class: Optional[SensorDeviceClass] = None,
+        unit_of_measurement: Optional[str] = None,
     ) -> None:
-        """Initialize the sensor."""
+        """Initialize the sensor"""
+        self._attr_unique_id = f"{config_id}_{monitored_value}"
         self._attr_name = name
-        self.warm_light = warm_light
-        self.cold_light = cold_light
-        # index the lights by entity_id to quickly reference them from the event handler
-        self.ligths = {
-            warm_light[ATTR_ENTITY_ID]: self.warm_light,
-            cold_light[ATTR_ENTITY_ID]: self.cold_light,
-        }
+        self._attr_device_class = device_class
+        self._attr_native_unit_of_measurement = unit_of_measurement
+        self._attr_device_info = DeviceInfo(identifiers=set([(DOMAIN, config_id)]))
+        self.monitored_value = monitored_value
+        self.config_id = config_id
+        self.event_listener_disconnect: Optional[CALLBACK_TYPE] = None
 
     async def async_added_to_hass(self):
-        """Restore the previous state if available, then subscribe to state change events from the two sub-lights"""
+        """
+        Restore the previous state if available.
+        Subscribe to the turn-off dispatcher signal from the CCT light
+        """
 
         restored_state = await self.async_get_last_sensor_data()
 
@@ -97,53 +110,65 @@ class CCTBrightnessSensor(RestoreSensor):
             restored_state is not None
             and restored_state.as_dict()["native_value"] is not None
         ):
+            _LOGGER.debug(
+                "%s: restoring state: %s",
+                self._friendly_name_internal(),
+                restored_state,
+            )
             self._attr_native_value = restored_state.as_dict()["native_value"]
-            _LOGGER.debug("Restored previous state: %s", restored_state)
+            self._attr_native_unit_of_measurement = restored_state.as_dict()[
+                "native_unit_of_measurement"
+            ]
 
-        # Track the state of the two lights
-        tracked_lights = [
-            self.warm_light[ATTR_ENTITY_ID],
-            self.cold_light[ATTR_ENTITY_ID],
-        ]
-        _LOGGER.debug("Start listening for events")
-        self.state_change_unsub = async_track_state_change_event(
-            self.hass, tracked_lights, self.on_real_lights_state_changed
+        # Keep track of when the CCT light turns off
+        _LOGGER.debug("%s: start listening for events", self._friendly_name_internal())
+
+        self.event_listener_disconnect = async_dispatcher_connect(
+            self.hass, DISPATCHER_SIGNAL_TURN_OFF, self.cct_light_off_callback
         )
+
+    async def async_will_remove_from_hass(self):
+        if self.event_listener_disconnect:
+            _LOGGER.debug(
+                "%s: shutting down event listener", self._friendly_name_internal()
+            )
+            self.event_listener_disconnect()
 
     @callback
-    async def on_real_lights_state_changed(self, event: Event[EventStateChangedData]):
-        """Callback for when any of the monitored light changes state.
-        Compute the combined brightness as the mean of the two brightness.
-
-        Update our state iff the resulting brightness != 0, so we always know the last brightness that we had.
+    async def cct_light_off_callback(self, event: Mapping[str, Any]):
         """
-        event_dict = event.as_dict()
+        Callback for when the CCT light turns off.
+        Keep track of the state of the CCT light before turning off, based on the monitored_value
+        """
+        _LOGGER.debug("%s: event %s", self._friendly_name_internal(), event)
 
-        # Extract the brightness attribute from the new state, and keep track of it
-        # _LOGGER.debug("Event %s", event_dict)
-        event_type = event_dict["event_type"]
-        entity_id = event_dict["data"][ATTR_ENTITY_ID]
-        new_state = event_dict["data"].get("new_state")
-        brightness = (
-            new_state.attributes.get(CONF_BRIGHTNESS)
-            if new_state and new_state.attributes
-            else None
+        light_entity = event.get(ATTR_ENTITY_ID)
+        light_unique_id = event.get(CONF_UNIQUE_ID)
+
+        # Check if the source light has comes from the same ConfigEntry as ourselves
+        if light_unique_id != self.config_id:
+            return
+
+        # Get the brightness from the event payload, before the light shuts off
+        sensor_value = event.get(self.monitored_value)
+
+        if sensor_value is None:
+            _LOGGER.warning(
+                "%s: received invalid %s from %s: %s",
+                self._friendly_name_internal(),
+                self.monitored_value,
+                light_entity,
+                sensor_value,
+            )
+            return
+
+        sensor_value_int = round(sensor_value)
+        _LOGGER.debug(
+            "%s: saving %s %d",
+            self._friendly_name_internal(),
+            self.monitored_value,
+            sensor_value_int,
         )
 
-        # _LOGGER.debug("%s entity: %s brightness: %s", event_type, entity_id, brightness)
-
-        # Keep track of the brightness of the light as an attribute in the lights dict
-        self.ligths[entity_id][CONF_BRIGHTNESS] = brightness
-
-        # Compute our brightness as the average brightness of the two lights, defaulting to 0 if is None (meaning light is off)
-        combined_brightness = round(
-            sum(int(light.get(CONF_BRIGHTNESS) or 0) for light in self.ligths.values())
-            / 2
-        )
-
-        # Update our state iff the brightness is not 0 (meaning all lights are off).
-        # This way we can always fallback to a known brightness when HA starts up
-        if combined_brightness != 0:
-            _LOGGER.debug("Computed brightness %d != 0", combined_brightness)
-            self._attr_native_value = combined_brightness
-            self.async_schedule_update_ha_state()
+        self._attr_native_value = sensor_value_int
+        self.async_schedule_update_ha_state()

@@ -14,10 +14,12 @@ from homeassistant.components.light import (
     ColorMode,
     LightEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_ENTITY_ID,
     CONF_NAME,
+    CONF_UNIQUE_ID,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     STATE_ON,
@@ -31,11 +33,23 @@ from homeassistant.core import (
     callback,
 )
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_COLD_LIGHT, CONF_WARM_LIGHT, DOMAIN
+from .const import (
+    CONF_COLD_LIGHT,
+    CONF_COLD_LIGHT_TEMPERATURE_KELVIN,
+    CONF_WARM_LIGHT,
+    CONF_WARM_LIGHT_TEMPERATURE_KELVIN,
+    DISPATCHER_SIGNAL_TURN_OFF,
+    DOMAIN,
+)
 from .helper import (
     BrightnessCalculator,
     BrightnessTemperaturePreference,
@@ -45,37 +59,67 @@ from .helper import (
 
 _LOGGER = logging.getLogger(__name__)
 
-INNER_LIGHT_SCHEMA = {
-    vol.Required(CONF_ENTITY_ID): cv.entity_id,
-    vol.Required(ATTR_COLOR_TEMP_KELVIN): vol.Range(min=0),
-}
+# INNER_LIGHT_SCHEMA = {
+#     vol.Required(CONF_ENTITY_ID): cv.entity_id,
+#     vol.Required(ATTR_COLOR_TEMP_KELVIN): vol.Range(min=0),
+# }
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_NAME): cv.string,
-        vol.Required(CONF_WARM_LIGHT): INNER_LIGHT_SCHEMA,
-        vol.Required(CONF_COLD_LIGHT): INNER_LIGHT_SCHEMA,
-    }
-)
+# PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+#     {
+#         vol.Required(CONF_NAME): cv.string,
+#         vol.Required(CONF_WARM_LIGHT): INNER_LIGHT_SCHEMA,
+#         vol.Required(CONF_COLD_LIGHT): INNER_LIGHT_SCHEMA,
+#     }
+# )
 
 
-async def async_setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the CCT virtual light platform"""
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_devices: AddEntitiesCallback
+):
+    """Set up the sensor platform."""
+    data = hass.data[DOMAIN][entry.entry_id]
+    config = entry.as_dict()["data"]
 
-    _LOGGER.debug("Setting up %s platform", DOMAIN)
-    _LOGGER.debug(config)
-
-    cct_light = CCTVirtualLight(
-        config[CONF_NAME], config[CONF_WARM_LIGHT], config[CONF_COLD_LIGHT]
+    light = CCTVirtualLight(
+        name=config[CONF_NAME],
+        warm_light={
+            CONF_ENTITY_ID: config[CONF_WARM_LIGHT],
+            ATTR_COLOR_TEMP_KELVIN: config[CONF_WARM_LIGHT_TEMPERATURE_KELVIN],
+        },
+        cold_light={
+            CONF_ENTITY_ID: config[CONF_COLD_LIGHT],
+            ATTR_COLOR_TEMP_KELVIN: config[CONF_COLD_LIGHT_TEMPERATURE_KELVIN],
+        },
+        config_id=entry.entry_id,
     )
 
-    # Add devices
-    async_add_entities((cct_light,))
+    async_add_devices([light])
+
+
+# async def async_setup_platform(
+#     hass: HomeAssistant,
+#     config: ConfigType,
+#     async_add_entities: AddEntitiesCallback,
+#     discovery_info: DiscoveryInfoType | None = None,
+# ) -> None:
+#     """Set up the CCT virtual light platform"""
+
+#     _LOGGER.debug("Setting up light platform")
+
+#     # If the entities was loaded from __init__.py, we have the discovery info
+#     if discovery_info:
+#         cct_light = CCTVirtualLight(
+#             discovery_info[CONF_NAME],
+#             discovery_info[CONF_WARM_LIGHT],
+#             discovery_info[CONF_COLD_LIGHT],
+#         )
+#     else:
+#         cct_light = CCTVirtualLight(
+#             config[CONF_NAME], config[CONF_WARM_LIGHT], config[CONF_COLD_LIGHT]
+#         )
+
+#     # Add created entities to HA
+#     async_add_entities((cct_light,))
 
 
 class CCTVirtualLight(LightEntity):
@@ -84,21 +128,26 @@ class CCTVirtualLight(LightEntity):
     # Our state depends only on the state of the other two ligths
     _attr_should_poll = False
     _attr_has_entity_name = True
+    _attr_name = None  # This is the main feature of the service
     _attr_color_mode = ColorMode.COLOR_TEMP
     _attr_supported_color_modes = set((ColorMode.COLOR_TEMP,))
 
     def __init__(
-        self, name: str, warm_light: dict[str, Any], cold_light: dict[str, Any]
+        self,
+        name: str,
+        warm_light: dict[str, Any],
+        cold_light: dict[str, Any],
+        config_id: str,
     ) -> None:
-        self.name = name
+        self._attr_unique_id = config_id
+        self._attr_device_info = DeviceInfo(
+            identifiers=set([(DOMAIN, config_id)]),
+            entry_type=DeviceEntryType.SERVICE,
+            name=name,
+        )
         self.warm_light = warm_light
         self.cold_light = cold_light
         self.state_change_unsub: CALLBACK_TYPE | None = None
-
-    @callback
-    async def on_real_lights_state_changed(self, event: Event[EventStateChangedData]):
-        """Callback for when any of the monitored light changes state"""
-        self.async_schedule_update_ha_state()
 
     @property
     def available(self) -> bool | None:
@@ -125,7 +174,7 @@ class CCTVirtualLight(LightEntity):
 
     @property
     def brightness(self) -> int | None:
-        _LOGGER.debug("Updating brightness")
+        _LOGGER.debug("%s: updating brightness", self._friendly_name_internal())
 
         brightnesses = self._get_brightnesses()
 
@@ -167,7 +216,7 @@ class CCTVirtualLight(LightEntity):
     async def async_turn_on(self, **kwargs):
         """Turn the light on"""
 
-        _LOGGER.debug("Turn on params: %s", kwargs)
+        _LOGGER.debug("%s: turn on params: %s", self._friendly_name_internal(), kwargs)
 
         # Extract information about the target temperature and brightness to be reached, if provided to,
         # otherwise try to maintain the currently set temperature and brightness, if possible
@@ -178,7 +227,8 @@ class CCTVirtualLight(LightEntity):
         # so fallback to simply turning on each light, without specifying any setting
         if target_brightness is None or target_temp_kelvin is None:
             _LOGGER.debug(
-                "No state available, turning all each light to its default state"
+                "%s: no state available, turning all each light to its default state",
+                self._friendly_name_internal,
             )
             ww_settings = TurnOnSettings(self.warm_light[CONF_ENTITY_ID])
             cw_settings = TurnOnSettings(self.cold_light[CONF_ENTITY_ID])
@@ -214,7 +264,18 @@ class CCTVirtualLight(LightEntity):
     async def async_turn_off(self, **kwargs):
         """Turn the light off"""
 
-        _LOGGER.debug("Turn off light")
+        # Fire a custom signal to keep track of the brightness and temperature before shutting down
+        signal_data = {
+            CONF_UNIQUE_ID: self.unique_id,
+            ATTR_ENTITY_ID: self.entity_id,
+            ATTR_BRIGHTNESS: self.brightness,
+            ATTR_COLOR_TEMP_KELVIN: self.color_temp_kelvin,
+        }
+        _LOGGER.debug(
+            "%s: turn off light, firing signal", self._friendly_name_internal()
+        )
+        async_dispatcher_send(self.hass, DISPATCHER_SIGNAL_TURN_OFF, signal_data)
+
         target = {
             ATTR_ENTITY_ID: [
                 self.warm_light[ATTR_ENTITY_ID],
@@ -228,8 +289,12 @@ class CCTVirtualLight(LightEntity):
 
     async def async_added_to_hass(self):
         """Subscribe to state change events from the two source lights"""
+        _LOGGER.debug("%s: start listening for events", self._friendly_name_internal())
 
-        _LOGGER.debug("Start listening for events")
+        self.hass.data[DOMAIN].setdefault(
+            self._friendly_name_internal(), self.entity_id
+        )
+
         tracked_lights = [
             self.warm_light[ATTR_ENTITY_ID],
             self.cold_light[ATTR_ENTITY_ID],
@@ -242,8 +307,19 @@ class CCTVirtualLight(LightEntity):
         """Remove the subscription"""
 
         if self.state_change_unsub:
-            _LOGGER.debug("Cancelling subscription to lights state change")
+            _LOGGER.debug(
+                "%s: cancelling subscription to lights state change",
+                self._name_internal,
+            )
             self.state_change_unsub()
+
+    @callback
+    async def on_real_lights_state_changed(self, event: Event[EventStateChangedData]):
+        """Callback for when any of the monitored light changes state"""
+        self.async_schedule_update_ha_state()
+
+    async def async_update(self):
+        _LOGGER.debug("udpate called")
 
     def _get_brightnesses(self) -> list[int] | None:
         """Extract from the state of the lights their brightness value, checking for None and falling back to value 0.

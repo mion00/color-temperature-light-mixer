@@ -1,41 +1,83 @@
-"""Custom integration to integrate integration_blueprint with Home Assistant.
+"""
+Virtual light integration to combine two lights as a single color changing tempereature (CCT) light within Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/ludeeus/integration_blueprint
+https://github.com/mion00/cct-virtual-light
 """
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import asyncio
 
-from .const import DOMAIN
+import voluptuous as vol
+
+from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.const import (
+    CONF_ENTITY_ID,
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_SOURCE,
+    CONF_USERNAME,
+    Platform,
+)
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import (
+    async_track_entity_registry_updated_event,
+    async_track_state_added_domain,
+    async_track_state_change_event,
+)
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+from .const import _DOMAIN_SCHEMA, DOMAIN, LOGGER
 from .coordinator import BlueprintDataUpdateCoordinator
 
-PLATFORMS: list[Platform] = [Platform.LIGHT]
+CONFIG_SCHEMA = vol.Schema(
+    {DOMAIN: vol.All(cv.ensure_list, [_DOMAIN_SCHEMA])}, extra=vol.ALLOW_EXTRA
+)
+"""Validate the configuration for this integration"""
+
+PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SENSOR]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the integration via YAML"""
+    LOGGER.info("Setting up %s integration", DOMAIN)
+    data = hass.data.setdefault(DOMAIN, {})
+
+    for entry in config[DOMAIN]:
+        LOGGER.debug("Forwarding setup to config entries")
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={CONF_SOURCE: SOURCE_IMPORT}, data=entry
+            )
+        )
+        # hass.async_create_task(hass.helpers.discovery.async_load_platform(Platform.LIGHT, DOMAIN, light, config))
+        # hass.async_create_task(hass.helpers.discovery.async_load_platform(Platform.SENSOR, DOMAIN, light, config))
+
+    return True
 
 
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
-# async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-#     """Set up this integration using UI."""
-#     hass.data.setdefault(DOMAIN, {})
-#     hass.data[DOMAIN][entry.entry_id] = coordinator = BlueprintDataUpdateCoordinator(
-#         hass=hass,
-#         client=IntegrationBlueprintApiClient(
-#             username=entry.data[CONF_USERNAME],
-#             password=entry.data[CONF_PASSWORD],
-#             session=async_get_clientsession(hass),
-#         ),
-#     )
-#     # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-#     await coordinator.async_config_entry_first_refresh()
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up this integration using the UI."""
 
-#     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-#     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    data = hass.data.setdefault(DOMAIN, {})
+    data.setdefault(entry.entry_id, {})
 
-#     return True
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -45,7 +87,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unloaded
 
 
-# async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-#     """Reload config entry."""
-#     await async_unload_entry(hass, entry)
-#     await async_setup_entry(hass, entry)
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    await async_unload_entry(hass, entry)
+    await async_setup_entry(hass, entry)

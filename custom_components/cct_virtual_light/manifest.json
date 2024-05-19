@@ -4,12 +4,12 @@
     "codeowners": [
         "@mion00"
     ],
-    "integration_type": "device",
-    "config_flow": false,
+    "config_flow": true,
     "dependencies": [],
     "documentation": "https://github.com/mion00/cct-virtual-light",
-    "iot_class": "calculated",
+    "integration_type": "service",
     "issue_tracker": "https://github.com/mion00/cct-virtual-light/issues",
+    "iot_class": "calculated",
     "requirements": [],
-    "version": "0.0.0"
+    "version": "0.0.1"
 }
