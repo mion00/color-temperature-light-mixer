@@ -15,18 +15,11 @@ import homeassistant.helpers.config_validation as cv
 
 LOGGER: Logger = getLogger(__package__)
 
-NAME = "CCT virtual light"
-DOMAIN = "cct_virtual_light"
-VERSION = "0.0.0"
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
-ISSUE_URL = "https://github.com/mion00/cct-virtual-light/issues"
-
-AVAILABILITY = "availability"
-EVENT_NEW_STATE = "new_state"
+NAME = "Light temperature mixer"
+DOMAIN = "light_temperature_mixer"
 
 BRIGHTNESS_SENSOR_NAME = "Restored brightness"
 TEMPERATURE_SENSOR_NAME = "Restored temperature"
-
 DISPATCHER_SIGNAL_TURN_OFF = f"{DOMAIN}_turn_off"
 
 # Configuration
@@ -39,8 +32,6 @@ CONF_COLD_LIGHT_TEMPERATURE_KELVIN = f"cold_light_{ATTR_COLOR_TEMP_KELVIN}"
 def is_capitalized(value: str) -> bool:
     return value[0].isupper()
 
-
-begin
 
 _DOMAIN_SCHEMA = {
     vol.Required(CONF_NAME): cv.string,

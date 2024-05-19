@@ -5,9 +5,9 @@ default_config:
 logger:
   default: error
   logs:
-    custom_components.cct_virtual_light: debug
-    custom_components.cct_virtual_light.sensor: debug
-    custom_components.cct_virtual_light.light: debug
+    custom_components.light_temperature_mixer: debug
+    custom_components.light_temperature_mixer.sensor: debug
+    custom_components.light_temperature_mixer.light: debug
     # homeassistant.components.light: debug
 
 light:
@@ -182,8 +182,8 @@ input_boolean:
   # warm_white_on_1:
   # cold_white_on_1:
 
-cct_virtual_light:
-  - name: "Light one"
+light_temperature_mixer:
+  - name: "Test light"
     warm_light_entity_id: light.warm_white
     warm_light_color_temp_kelvin: 3000
     cold_light_entity_id: light.cold_white

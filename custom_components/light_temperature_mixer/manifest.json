@@ -1,6 +1,6 @@
 {
-    "domain": "cct_virtual_light",
-    "name": "CCT virtual light",
+    "domain": "light_temperature_mixer",
+    "name": "Light temperature mixer",
     "codeowners": [
         "@mion00"
     ],

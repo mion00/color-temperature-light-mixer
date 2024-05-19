@@ -39,7 +39,6 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import _DOMAIN_SCHEMA, DOMAIN, LOGGER
-from .coordinator import BlueprintDataUpdateCoordinator
 
 CONFIG_SCHEMA = vol.Schema(
     {DOMAIN: vol.All(cv.ensure_list, [_DOMAIN_SCHEMA])}, extra=vol.ALLOW_EXTRA
