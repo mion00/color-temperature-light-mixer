@@ -6,9 +6,13 @@ logger:
   default: error
   logs:
     custom_components.light_temperature_mixer: debug
-    custom_components.light_temperature_mixer.sensor: debug
     custom_components.light_temperature_mixer.light: debug
+    custom_components.light_temperature_mixer.sensor: info
     # homeassistant.components.light: debug
+
+debugpy:
+  start: true
+  wait: false
 
 light:
   # - platform: cct_virtual_light
@@ -166,14 +170,14 @@ input_number:
     max: 255
     step: 1
 
-  warm_white_brightness_1:
-    min: 1
-    max: 255
-    step: 1
-  cold_white_brightness_1:
-    min: 1
-    max: 255
-    step: 1
+  # warm_white_brightness_1:
+  #   min: 1
+  #   max: 255
+  #   step: 1
+  # cold_white_brightness_1:
+    # min: 1
+    # max: 255
+    # step: 1
 
 input_boolean:
   warm_white_on:

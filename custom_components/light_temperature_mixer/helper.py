@@ -14,7 +14,9 @@ BRIGHTNESS_SOURCE_SCALE = (1, 255)
 BRIGHTNESS_TARGET_SCALE = (1, 50)
 
 
-class BrightnessTemperaturePreference(StrEnum):
+class BrightnessTemperaturePriority(StrEnum):
+    """Enum that indicates what to prefer in the computation of the target brightness required to (temperature, brightness) target tuple"""
+
     BRIGHTNESS = "Target the brightness, at the expense of the temperature"
     TEMPERATURE = "Target the temperature, at the expense of the brightness"
     MIXED = "Try to target a mix of both temperature and brightness"
@@ -23,12 +25,13 @@ class BrightnessTemperaturePreference(StrEnum):
 @dataclass
 class TurnOnSettings:
     entity_id: str
-    data: dict[str, int] | None = None
+    common_data: dict[str, int]
+    brightness: int | None = None
 
 
 @dataclass
 class TemperatureCalculator:
-    """Class for computing the temperature of two combined lights of different temperature"""
+    """Class for computing the temperature of two combined lights of different temperature, depending on their brightness level"""
 
     warm_brightness: int
     """Brightness of the warm light in the range 1...255"""
@@ -51,7 +54,7 @@ class TemperatureCalculator:
         )
         # _LOGGER.debug("Computed temperature: %f K", combined_temperature)
 
-        # Clamp the temperature betwween min and maximum supported temperatures
+        # Clamp the computed temperature between the min and maximum supported temperatures
         return max(
             self.warm_temperature_kelvin,
             min(self.cold_temperature_kelvin, combined_temperature),
@@ -72,7 +75,7 @@ class BrightnessCalculator:
     target_brightness: int
     """Target brightness to reach in the range 1...255"""
 
-    preferred_style: BrightnessTemperaturePreference
+    priority: BrightnessTemperaturePriority
     """TODO"""
 
     def required_brightnesses(self) -> tuple[int, int]:
@@ -84,9 +87,10 @@ class BrightnessCalculator:
         """
 
         _LOGGER.debug(
-            "Computing brightness for temp: %d, bright: %d",
+            "Computing brightness for temp: %d, bright: %d, priority: %s",
             self.target_temperature_kelvin,
             self.target_brightness,
+            self.priority.name,
         )
 
         # Convert ot mired to operate on a linear temperature space
@@ -124,12 +128,12 @@ class BrightnessCalculator:
         )
 
         if cold_brightness > 255:
-            match self.preferred_style:
-                case BrightnessTemperaturePreference.BRIGHTNESS:
+            match self.priority:
+                case BrightnessTemperaturePriority.BRIGHTNESS:
                     pass
-                case BrightnessTemperaturePreference.TEMPERATURE:
+                case BrightnessTemperaturePriority.TEMPERATURE:
                     pass
-                case BrightnessTemperaturePreference.MIXED:
+                case BrightnessTemperaturePriority.MIXED:
                     pass
 
         # Clamp brightness to acceptable ranges

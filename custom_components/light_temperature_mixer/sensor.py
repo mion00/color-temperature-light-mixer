@@ -3,39 +3,25 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
-from homeassistant.components.sensor import RestoreSensor, SensorEntityDescription
+from homeassistant.components.sensor import RestoreSensor
 from homeassistant.components.sensor.const import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_BRIGHTNESS as BRIGHTNESS,
-    CONF_NAME,
-    CONF_SENSOR_TYPE,
     CONF_UNIQUE_ID,
-    EVENT_STATE_CHANGED,
-    TEMPERATURE,
     EntityCategory,
 )
-from homeassistant.core import (
-    CALLBACK_TYPE,
-    Event,
-    EventStateChangedData,
-    HomeAssistant,
-    callback,
-)
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import (
     BRIGHTNESS_SENSOR_NAME,
-    CONF_COLD_LIGHT,
-    CONF_WARM_LIGHT,
     DISPATCHER_SIGNAL_TURN_OFF,
     DOMAIN,
     TEMPERATURE_SENSOR_NAME,
@@ -68,9 +54,6 @@ async def async_setup_entry(
     async_add_devices(sensors)
 
 
-SUPPORTED_MONITORED_VALUES = Literal["brightness", "color_temp_kelvin"]
-
-
 class CCTRestoreSensor(RestoreSensor):
     """Restorable virtual sensor tracking the last state of a CCT light before turning off"""
 
@@ -83,7 +66,7 @@ class CCTRestoreSensor(RestoreSensor):
         self,
         config_id: str,
         name: str,
-        monitored_value: SUPPORTED_MONITORED_VALUES,
+        monitored_value: str,
         device_class: Optional[SensorDeviceClass] = None,
         unit_of_measurement: Optional[str] = None,
     ) -> None:
@@ -102,6 +85,10 @@ class CCTRestoreSensor(RestoreSensor):
         Restore the previous state if available.
         Subscribe to the turn-off dispatcher signal from the CCT light
         """
+
+        # Keep track of the entity_id of each sensor, to be discoverable by the light entity
+        data = self.hass.data[DOMAIN].setdefault(self.config_id, {})
+        data[self.monitored_value] = self.entity_id
 
         restored_state = await self.async_get_last_sensor_data()
 

@@ -7,11 +7,8 @@ import logging
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.config_entries import ConfigFlowResult
-from homeassistant.const import CONF_ENTITY_ID, CONF_NAME, CONF_USERNAME
-from homeassistant.helpers import selector
-import homeassistant.helpers.config_validation as cv
+from homeassistant.const import CONF_NAME
 
 from .const import _DOMAIN_SCHEMA, DOMAIN, is_capitalized
 

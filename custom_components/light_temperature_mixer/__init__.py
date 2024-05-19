@@ -1,5 +1,5 @@
 """
-Virtual light integration to combine two lights as a single color changing tempereature (CCT) light within Home Assistant.
+Light temperature mixer used to mix two lights of different temperature a single light group within Home Assistant.
 
 For more details about this integration, please refer to
 https://github.com/mion00/cct-virtual-light
@@ -7,36 +7,13 @@ https://github.com/mion00/cct-virtual-light
 
 from __future__ import annotations
 
-import asyncio
-
 import voluptuous as vol
 
-from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import (
-    CONF_ENTITY_ID,
-    CONF_NAME,
-    CONF_PASSWORD,
-    CONF_SOURCE,
-    CONF_USERNAME,
-    Platform,
-)
-from homeassistant.core import (
-    CALLBACK_TYPE,
-    Event,
-    EventStateChangedData,
-    HomeAssistant,
-    callback,
-)
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.const import CONF_SOURCE, Platform
+from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import (
-    async_track_entity_registry_updated_event,
-    async_track_state_added_domain,
-    async_track_state_change_event,
-)
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.helpers.typing import ConfigType
 
 from .const import _DOMAIN_SCHEMA, DOMAIN, LOGGER
 

@@ -4,15 +4,13 @@ from collections.abc import Awaitable
 import logging
 from typing import Any
 
-import voluptuous as vol
-
+from homeassistant.components.group.light import FORWARDED_ATTRIBUTES, LightGroup
+from homeassistant.components.group.util import find_state_attributes, mean_int
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     DOMAIN as DOMAIN_LIGHT,
-    PLATFORM_SCHEMA,
     ColorMode,
-    LightEntity,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -20,22 +18,15 @@ from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_NAME,
     CONF_UNIQUE_ID,
-    SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     STATE_ON,
     STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
 )
-from homeassistant.core import (
-    CALLBACK_TYPE,
-    Event,
-    EventStateChangedData,
-    HomeAssistant,
-    callback,
-)
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     CONF_COLD_LIGHT,
@@ -47,7 +38,7 @@ from .const import (
 )
 from .helper import (
     BrightnessCalculator,
-    BrightnessTemperaturePreference,
+    BrightnessTemperaturePriority,
     TemperatureCalculator,
     TurnOnSettings,
 )
@@ -72,10 +63,10 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_devices: AddEntitiesCallback
 ):
     """Set up the sensor platform."""
-    data = hass.data[DOMAIN][entry.entry_id]
+    # data = hass.data[DOMAIN][entry.entry_id]
     config = entry.as_dict()["data"]
 
-    light = CCTVirtualLight(
+    light = TemperatureMixerLight(
         name=config[CONF_NAME],
         warm_light={
             CONF_ENTITY_ID: config[CONF_WARM_LIGHT],
@@ -117,15 +108,11 @@ async def async_setup_entry(
 #     async_add_entities((cct_light,))
 
 
-class CCTVirtualLight(LightEntity):
-    """Virtual color changing temperature light"""
+class TemperatureMixerLight(LightGroup):
+    """Light group that mixes a group of lights having different color temperature"""
 
-    # Our state depends only on the state of the other two ligths
-    _attr_should_poll = False
     _attr_has_entity_name = True
     _attr_name = None  # This is the main feature of the service
-    _attr_color_mode = ColorMode.COLOR_TEMP
-    _attr_supported_color_modes = set((ColorMode.COLOR_TEMP,))
 
     def __init__(
         self,
@@ -140,143 +127,211 @@ class CCTVirtualLight(LightEntity):
             entry_type=DeviceEntryType.SERVICE,
             name=name,
         )
+        super().__init__(
+            unique_id=self.unique_id,
+            name=None,  # type: ignore
+            entity_ids=[warm_light[ATTR_ENTITY_ID], cold_light[ATTR_ENTITY_ID]],
+            mode=False,
+        )
+        self._attr_min_color_temp_kelvin = warm_light[ATTR_COLOR_TEMP_KELVIN]
+        self._attr_max_color_temp_kelvin = cold_light[ATTR_COLOR_TEMP_KELVIN]
+        self._attr_color_mode = ColorMode.COLOR_TEMP
+        self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+
         self.warm_light = warm_light
         self.cold_light = cold_light
-        self.state_change_unsub: CALLBACK_TYPE | None = None
+        self.config_id = config_id
 
-    @property
-    def available(self) -> bool | None:
-        # _LOGGER.debug("Checking if light is available")
-        is_warm_available = self.hass.states.get(self.warm_light[ATTR_ENTITY_ID])
-        is_cold_available = self.hass.states.get(self.cold_light[ATTR_ENTITY_ID])
+    @callback
+    def async_update_group_state(self) -> None:
+        # _LOGGER.debug("Updating group state")
+        states = {
+            entity_id: state
+            for entity_id in self._entity_ids
+            if (state := self.hass.states.get(entity_id)) is not None
+        }
+        # Filter for states that are on
+        on_states = {
+            state: value for (state, value) in states.items() if value.state == STATE_ON
+        }
 
-        # Neither of the lights must be unavailable
-        return (
-            is_warm_available and is_warm_available.state != STATE_UNAVAILABLE
-        ) and (is_cold_available and is_cold_available.state != STATE_UNAVAILABLE)
+        valid_state = self.mode(
+            state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE)
+            for state in states.values()
+        )
 
-    @property
-    def is_on(self) -> bool | None:
-        # _LOGGER.debug("%s: checking if light is on", self._friendly_name_internal())
+        if not valid_state:
+            # Set as unknown if any / all member is unknown or unavailable
+            self._attr_is_on = None
+        else:
+            # Set as ON if any / all member is ON
+            self._attr_is_on = self.mode(
+                state.state == STATE_ON for state in states.values()
+            )
 
-        warm_light_state = self.hass.states.get(self.warm_light[ATTR_ENTITY_ID])
-        cold_light_state = self.hass.states.get(self.cold_light[ATTR_ENTITY_ID])
+        self._attr_available = any(
+            state.state != STATE_UNAVAILABLE for state in states.values()
+        )
 
-        is_warm_on = warm_light_state and warm_light_state.state == STATE_ON
-        is_cold_on = cold_light_state and cold_light_state.state == STATE_ON
+        brightnesses: list[str] = list(
+            find_state_attributes(list(on_states.values()), ATTR_BRIGHTNESS)
+        )
+        self._attr_brightness = mean_int(*brightnesses) if brightnesses else None
+        self._attr_color_temp_kelvin = self._compute_color_temp_kelvin(on_states)
 
-        # If both lights are off -> we are also off, so fire the event to save our state
-        if not is_warm_on and not is_cold_on:
-            # _LOGGER.debug("%s: light is off", self._friendly_name_internal())
-            self._fire_turn_off_signal()
+    def _compute_color_temp_kelvin(self, on_states: dict[str, State]) -> int | None:
+        """
+        Given the dictionary of states containing the lights that are currently on,
+        compute the combined temperature of the light group as a weighted average of the two lights temperatures.
+        """
+        # If no light is on, we are unable to compute the temperature
+        if not on_states:
+            return
 
-        # Light is on if either one of the two lights is on
-        return is_warm_on or is_cold_on
+        warm_light_state = on_states.get(self.warm_light[ATTR_ENTITY_ID])
+        cold_light_state = on_states.get(self.cold_light[ATTR_ENTITY_ID])
 
-    @property
-    def brightness(self) -> int | None:
-        # _LOGGER.debug("%s: computing brightness", self._friendly_name_internal())
-
-        brightnesses = self._get_brightnesses()
-
-        if brightnesses is None:
-            return None
-
-        # Computed the sum of each light brightness, then divide by two since the contribution of each single light is half
-        total_brightness = sum(brightnesses) / 2
-
-        return round(total_brightness)
-
-    @property
-    def color_temp_kelvin(self) -> int | None:
-        brightnesses = self._get_brightnesses()
-        if brightnesses is None:
-            return None
+        # Try to extract the brightness attribute if the light is on, otherwise fallback to 0
+        self.warm_light[ATTR_BRIGHTNESS] = (
+            int(warm_light_state.attributes.get(ATTR_BRIGHTNESS, 0))
+            if warm_light_state is not None
+            else 0
+        )
+        self.cold_light[ATTR_BRIGHTNESS] = (
+            int(cold_light_state.attributes.get(ATTR_BRIGHTNESS, 0))
+            if cold_light_state is not None
+            else 0
+        )
 
         temperature_calc = TemperatureCalculator(
-            brightnesses[0],
+            self.warm_light[ATTR_BRIGHTNESS],
             self.warm_light[ATTR_COLOR_TEMP_KELVIN],
-            brightnesses[1],
+            self.cold_light[ATTR_BRIGHTNESS],
             self.cold_light[ATTR_COLOR_TEMP_KELVIN],
         )
         computed_temp = temperature_calc.current_temperature()
-        # _LOGGER.debug("Computed temp: %d", computed_temp)
 
+        # _LOGGER.debug("Computed temp: %d with input: %s %s", computed_temp, self.warm_light, self.cold_light)
         return computed_temp
 
-    @property
-    def min_color_temp_kelvin(self) -> int:
-        """User-configured color temperature of the warmest light"""
-        return int(self.warm_light[ATTR_COLOR_TEMP_KELVIN])
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """
+        Given a combination of brightness or color_temp_kelvin, compute the required brightnesses
+        for all the lights in the group.
+        """
+        # _LOGGER.debug(
+        #     "%s: turn on with params: %s", self._friendly_name_internal(), kwargs
+        # )
 
-    @property
-    def max_color_temp_kelvin(self) -> int:
-        """User-configured color temperature of the coolest light"""
-        return int(self.cold_light[ATTR_COLOR_TEMP_KELVIN])
+        # Extract information about the target temperature and brightness passed as kwargs, if available.
+        # Otherwise try to maintain the currently set temperature and brightness, restoring them from the dedicated sensors if unavailable locally
+        target_brightness = kwargs.get(ATTR_BRIGHTNESS)
+        target_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
 
-    async def async_turn_on(self, **kwargs):
-        """Turn the light on"""
+        # By default we prioritize both temp and brightness
+        priority = BrightnessTemperaturePriority.MIXED
+        if not any([target_brightness, target_temp_kelvin]):
+            # If no brightness and temperature has been provided, fallback to their current value
+            target_brightness = self.brightness
+            target_temp_kelvin = self.color_temp_kelvin
+        elif target_brightness is None:
+            # If not provided in the service call, fallback to the current value of the light brightness and prioritize temperature
+            target_brightness = self.brightness
+            priority = BrightnessTemperaturePriority.TEMPERATURE
+        elif target_temp_kelvin is None:
+            # If not provided in the service call, fallback to the current value of the light temperature and prioritize brightness
+            target_temp_kelvin = self.color_temp_kelvin
+            priority = BrightnessTemperaturePriority.BRIGHTNESS
 
-        _LOGGER.debug("%s: turn on params: %s", self._friendly_name_internal(), kwargs)
+        def restore_state(sensor_type: str) -> int | None:
+            """Restore the state of the given sensor from the ad-hoc restorable sensor, if it is available"""
+            restored_sensors_ids = self.hass.data[DOMAIN].get(self.config_id)
+            state = self.hass.states.get(restored_sensors_ids[sensor_type])
 
-        # Extract information about the target temperature and brightness to be reached, if provided to,
-        # otherwise try to maintain the currently set temperature and brightness, if possible
-        target_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN, self.color_temp_kelvin)
-        target_brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
+            if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                return
 
-        # If one of the two parameter is undefined, we cannot properly computed the target brightness,
-        # so fallback to simply turning on each light, without specifying any setting
-        if target_brightness is None or target_temp_kelvin is None:
+            return int(state.state)
+
+        # If one of the two parameter (brightness/temp) is undefined, read the value from the restored sensors
+        if target_brightness is None:
+            target_brightness = restore_state(ATTR_BRIGHTNESS)
             _LOGGER.debug(
-                "%s: no state available, turning all each light to its default state",
-                self._friendly_name_internal,
+                "%s: restoring previous brightness: %s",
+                self._friendly_name_internal(),
+                target_brightness,
             )
-            ww_settings = TurnOnSettings(self.warm_light[CONF_ENTITY_ID])
-            cw_settings = TurnOnSettings(self.cold_light[CONF_ENTITY_ID])
+
+        if target_temp_kelvin is None:
+            target_temp_kelvin = restore_state(ATTR_COLOR_TEMP_KELVIN)
+            _LOGGER.debug(
+                "%s: restoring previous temperature: %s",
+                self._friendly_name_internal(),
+                target_temp_kelvin,
+            )
+
+        # Populate the base service data common to all the lights
+        common_data = {
+            key: value for key, value in kwargs.items() if key in FORWARDED_ATTRIBUTES
+        }
+
+        if not all([target_brightness, target_temp_kelvin]):
+            _LOGGER.debug(
+                "%s: no restored state available, turning all each light to its default state",
+                self._friendly_name_internal(),
+            )
+            ww_settings = TurnOnSettings(self.warm_light[CONF_ENTITY_ID], common_data)
+            cw_settings = TurnOnSettings(self.cold_light[CONF_ENTITY_ID], common_data)
             await self._turn_on_lights(ww_settings, cw_settings)
-
-            # Wait for time for the state of the two lights to update
-            await asyncio.sleep(0.1)
-
-            # Now we should have the state of each light and are able to properly compute temperature and brightness
-            target_temp_kelvin = kwargs.get(
-                ATTR_COLOR_TEMP_KELVIN, self.color_temp_kelvin
-            )
-            target_brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
+            return
 
         brightness_calculator = BrightnessCalculator(
             self.min_color_temp_kelvin,
             self.max_color_temp_kelvin,
-            target_temp_kelvin,
-            target_brightness,
-            BrightnessTemperaturePreference.BRIGHTNESS,
+            target_temp_kelvin,  # type: ignore
+            target_brightness,  # type: ignore
+            priority,
         )
         ww_brightness, cw_brightness = brightness_calculator.required_brightnesses()
 
-        # Turn on the two lights with the computed brightness for each
+        # Personalize the service data with the light-specific brightness
         ww_settings = TurnOnSettings(
-            self.warm_light[CONF_ENTITY_ID], {ATTR_BRIGHTNESS: ww_brightness}
+            self.warm_light[CONF_ENTITY_ID], common_data.copy(), ww_brightness
         )
         cw_settings = TurnOnSettings(
-            self.cold_light[CONF_ENTITY_ID], {ATTR_BRIGHTNESS: cw_brightness}
+            self.cold_light[CONF_ENTITY_ID], common_data.copy(), cw_brightness
         )
-        # await self._turn_on_lights(ww_settings, cw_settings)
 
-    async def async_turn_off(self, **kwargs):
-        """Turn the light off"""
+        await self._turn_on_lights(ww=ww_settings, cw=cw_settings)
+        # await self._turn_on_lights(ww=cw_settings, cw=ww_settings)
 
-        self._fire_turn_off_signal()
+    # async def async_turn_on(self, **kwargs):
+    #     """Turn the light on"""
 
-        target = {
-            ATTR_ENTITY_ID: [
-                self.warm_light[ATTR_ENTITY_ID],
-                self.cold_light[ATTR_ENTITY_ID],
-            ]
-        }
-        # Shut off both lights
-        await self.hass.services.async_call(
-            DOMAIN_LIGHT, SERVICE_TURN_OFF, target=target
-        )
+    #     _LOGGER.debug("%s: turn on params: %s", self._friendly_name_internal(), kwargs)
+
+    #     # Extract information about the target temperature and brightness to be reached, if provided to,
+    #     # otherwise try to maintain the currently set temperature and brightness, if possible
+    #     target_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN, self.color_temp_kelvin)
+    #     target_brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
+
+    # await self._turn_on_lights(ww_settings, cw_settings)
+
+    # async def async_turn_off(self, **kwargs):
+    #     """Turn the light off"""
+
+    #     self._fire_turn_off_signal()
+
+    #     target = {
+    #         ATTR_ENTITY_ID: [
+    #             self.warm_light[ATTR_ENTITY_ID],
+    #             self.cold_light[ATTR_ENTITY_ID],
+    #         ]
+    #     }
+    #     # Shut off both lights
+    #     await self.hass.services.async_call(
+    #         DOMAIN_LIGHT, SERVICE_TURN_OFF, target=target
+    #     )
 
     def _fire_turn_off_signal(self):
         """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off"""
@@ -293,84 +348,31 @@ class CCTVirtualLight(LightEntity):
         _LOGGER.debug("%s: firing turn off signal", self._friendly_name_internal())
         async_dispatcher_send(self.hass, DISPATCHER_SIGNAL_TURN_OFF, signal_data)
 
-    async def async_added_to_hass(self):
-        """Subscribe to state change events from the two source lights"""
-        _LOGGER.debug("%s: start listening for events", self._friendly_name_internal())
-
-        self.hass.data[DOMAIN].setdefault(
-            self._friendly_name_internal(), self.entity_id
-        )
-
-        tracked_lights = [
-            self.warm_light[ATTR_ENTITY_ID],
-            self.cold_light[ATTR_ENTITY_ID],
-        ]
-        self.state_change_unsub = async_track_state_change_event(
-            self.hass, tracked_lights, self.on_real_lights_state_changed
-        )
-
-    async def async_will_remove_from_hass(self):
-        """Remove the subscription"""
-
-        if self.state_change_unsub:
-            _LOGGER.debug(
-                "%s: cancelling subscription to lights state change",
-                self._name_internal,
-            )
-            self.state_change_unsub()
-
-    @callback
-    async def on_real_lights_state_changed(self, event: Event[EventStateChangedData]):
-        """Callback for when any of the monitored light changes state"""
-        self.async_schedule_update_ha_state()
-
-    def _get_brightnesses(self) -> list[int] | None:
-        """Extract from the state of the lights their brightness value, checking for None and falling back to value 0.
-
-        Return the values in the form `[warm_brightness, cold_brightness]`
-        """
-
-        warm_light = self.hass.states.get(self.warm_light[ATTR_ENTITY_ID])
-        cold_light = self.hass.states.get(self.cold_light[ATTR_ENTITY_ID])
-
-        # Extract the brightness attribute making sure that the attribute exists
-        warm_brightness = (
-            warm_light.attributes.get("brightness")
-            if (warm_light and warm_light.attributes)
-            else None
-        )
-        cold_brightness = (
-            cold_light.attributes.get("brightness")
-            if (cold_light and cold_light.attributes)
-            else None
-        )
-
-        # If both brightness are None, set it ot None as well
-        if warm_brightness is None and cold_brightness is None:
-            return None
-
-        # Convert the brightnesses to an integer, or fallback to 0 if it is not defined (the light may be unavailable or shutoff)
-        brightnesses = list(
-            map(lambda x: int(x or 0), [warm_brightness, cold_brightness])
-        )
-
-        # _LOGGER.debug("Brightnesses w: %d, c: %d", *brightnesses)
-        return brightnesses
-
     async def _turn_on_lights(
         self, ww: TurnOnSettings, cw: TurnOnSettings
     ) -> Awaitable:
         service_calls = []
         for light in (ww, cw):
             target = {ATTR_ENTITY_ID: light.entity_id}
-            data = (
-                {attribute: light.data[attribute] for attribute in light.data}
-                if light.data
-                else None
+            service_data = light.common_data
+
+            if light.brightness:
+                service_data[ATTR_BRIGHTNESS] = light.brightness
+
+            _LOGGER.debug(
+                "%s: forward turn_on: %s %s",
+                self._friendly_name_internal(),
+                target,
+                service_data,
             )
             service_calls.append(
                 self.hass.services.async_call(
-                    DOMAIN_LIGHT, SERVICE_TURN_ON, target=target, service_data=data
+                    DOMAIN_LIGHT,
+                    SERVICE_TURN_ON,
+                    target=target,
+                    service_data=service_data,
+                    blocking=False,
+                    # context=self._context,
                 )
             )
 

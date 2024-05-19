@@ -1,11 +1,13 @@
 """Constants for cct_virtual_light."""
 
+from enum import StrEnum
 from logging import Logger, getLogger
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     DOMAIN as LIGHT_DOMAIN,
 )
@@ -18,8 +20,10 @@ LOGGER: Logger = getLogger(__package__)
 NAME = "Light temperature mixer"
 DOMAIN = "light_temperature_mixer"
 
+
 BRIGHTNESS_SENSOR_NAME = "Restored brightness"
 TEMPERATURE_SENSOR_NAME = "Restored temperature"
+
 DISPATCHER_SIGNAL_TURN_OFF = f"{DOMAIN}_turn_off"
 
 # Configuration
