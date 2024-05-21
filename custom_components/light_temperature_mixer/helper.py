@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 import logging
+import math
 
 from homeassistant.util.color import (
     color_temperature_kelvin_to_mired,
@@ -8,18 +9,18 @@ from homeassistant.util.color import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-# BRIGHTNESS_SCALE_FACTOR = 255 * 2
-BRIGHTNESS_SOURCE_SCALE = (1, 255)
-BRIGHTNESS_TARGET_SCALE = (1, 50)
+BRIGHTNESS_RANGE = (1, 255)
 
 
 class BrightnessTemperaturePriority(StrEnum):
     """Enum that indicates what to prefer in the computation of the target brightness required to (temperature, brightness) target tuple"""
 
-    BRIGHTNESS = "Target the brightness, at the expense of the temperature"
-    TEMPERATURE = "Target the temperature, at the expense of the brightness"
-    MIXED = "Try to target a mix of both temperature and brightness"
+    BRIGHTNESS = auto()
+    """Maintain the target brightness, at the expense of the temperature"""
+    TEMPERATURE = auto()
+    """Maintain the target temperature, at the expense of the brightness"""
+    MIXED = auto()
+    """Try to target a mix of both temperature and brightness"""
 
 
 @dataclass
@@ -75,11 +76,12 @@ class BrightnessCalculator:
     target_brightness: int
     """Target brightness to reach in the range 1...255"""
 
-    priority: BrightnessTemperaturePriority
-    """TODO"""
+    priority: BrightnessTemperaturePriority = BrightnessTemperaturePriority.MIXED
+    """Govern the behavior when we we want to reach a brightness and temperature outside the admissable range"""
 
-    def required_brightnesses(self) -> tuple[int, int]:
-        """Compute the warm and cold light brightness.
+    def compute_brightnesses(self) -> tuple[int, int]:
+        """
+        Compute the warm and cold light brightness required to reach the target temperature
 
         Returns:
             (warm, cold) brightness in range 1-255
@@ -104,21 +106,114 @@ class BrightnessCalculator:
             self.cold_temperature_kelvin
         )
 
+        # These functions are obtained by inverting the one defined in the util module `rgbww_to_color_temperature()`
+        cold_brightness, warm_brightness = self._decompose_brightnesses(
+            target_temperature_mired,
+            self.target_brightness,
+            warm_temperature_mired,
+            cold_temperature_mired,
+        )
+
         # Compute the half-point between the range of possible temperatures
-        half_temperature_mired = (warm_temperature_mired - cold_temperature_mired) / 2
+        half_temperature_mired = (warm_temperature_mired + cold_temperature_mired) / 2
 
-        # Flag that takes into account if the taret temperature is in the first or second half of the temperature range
-        is_target_temp_warmer = target_temperature_mired > half_temperature_mired
+        # Flag that takes into account if the target temperature is in the first or second half of the temperature range
+        is_temp_in_second_half = target_temperature_mired > half_temperature_mired
 
-        # TODO: define these as helper function
-        # These functions are obtained by inverting the one defined in the util function `rgbww_to_color_temperature()`
+        if is_temp_in_second_half and warm_brightness > BRIGHTNESS_RANGE[1]:
+            # If the computed warm brightness is greater than the achievable brightness, mirror the temperature against the x=target_temperature_mired line,
+            # obtaining the specular case than the one condition below
+            mirrored_temperature_mired = (
+                2 * half_temperature_mired - target_temperature_mired
+            )
+            cold_brightness, warm_brightness = self._target_outside_range(
+                mirrored_temperature_mired,
+                warm_temperature_mired,
+                cold_temperature_mired,
+            )
+        elif cold_brightness > BRIGHTNESS_RANGE[1]:
+            # If the cold brightness is greater than the achievable brightness, scale it back to an acceptable range,
+            # depending on the priority between brightness and temperature
+            warm_brightness, cold_brightness = self._target_outside_range(
+                target_temperature_mired, warm_temperature_mired, cold_temperature_mired
+            )
+
+        # Clamp brightness to acceptable ranges
+        warm_brightness = min(warm_brightness, BRIGHTNESS_RANGE[1])
+        cold_brightness = min(cold_brightness, BRIGHTNESS_RANGE[1])
+        return warm_brightness, cold_brightness
+
+    def _target_outside_range(
+        self, target_temperature_mired, warm_temperature_mired, cold_temperature_mired
+    ):
+        """
+        Given a target_temperature outside the achievable range, compute a new target_temperature or target_brightness depending
+        on the configured BrightnessTemperaturePriority
+        """
+        match self.priority:
+            case BrightnessTemperaturePriority.BRIGHTNESS:
+                # Find the horizontal projection of the point (target_temp, target_brightness) on the hyperbolic curve
+                new_target_brightness = self.target_brightness
+                new_target_temperature_mired = (
+                    (2 * self.target_brightness * warm_temperature_mired)
+                    + BRIGHTNESS_RANGE[1] * cold_temperature_mired
+                    - BRIGHTNESS_RANGE[1] * warm_temperature_mired
+                ) / (2 * self.target_brightness)
+
+                _LOGGER.debug(
+                    "Computed new target_temperature: %d", new_target_temperature_mired
+                )
+
+            case BrightnessTemperaturePriority.TEMPERATURE:
+                # Find the vertical projection of the point (target_temp, target_brightness) on the hyperbolic curve
+                new_target_temperature_mired = target_temperature_mired
+                new_target_brightness = (
+                    BRIGHTNESS_RANGE[1]
+                    * (cold_temperature_mired - warm_temperature_mired)
+                    / (2 * (target_temperature_mired - warm_temperature_mired))
+                )
+                _LOGGER.debug(
+                    "Computed new target_brightness: %d", new_target_brightness
+                )
+
+            case BrightnessTemperaturePriority.MIXED:
+                new_target_temperature_mired, new_target_brightness = (
+                    self._find_closest_achievable_target(
+                        target_temperature_mired,
+                        warm_temperature_mired,
+                        cold_temperature_mired,
+                    )
+                )
+                _LOGGER.debug(
+                    "Computed new target_temperature: %d, target_brightness: %d",
+                    new_target_temperature_mired,
+                    new_target_brightness,
+                )
+
+        cold_brightness, warm_brightness = self._decompose_brightnesses(
+            target_temperature_mired=new_target_temperature_mired,
+            target_brightness=new_target_brightness,
+            warm_temperature_mired=warm_temperature_mired,
+            cold_temperature_mired=cold_temperature_mired,
+        )
+        return warm_brightness, cold_brightness
+
+    def _decompose_brightnesses(
+        self,
+        target_temperature_mired,
+        target_brightness,
+        warm_temperature_mired,
+        cold_temperature_mired,
+    ):
+        """Compute the warm and cold brightnesses required to reach the target temperature and brightness combo"""
+
         cold_brightness = round(
-            (2 * self.target_brightness)
+            (2 * target_brightness)
             * (target_temperature_mired - warm_temperature_mired)
             / (cold_temperature_mired - warm_temperature_mired)
         )
         warm_brightness = round(
-            (2 * self.target_brightness)
+            (2 * target_brightness)
             * (cold_temperature_mired - target_temperature_mired)
             / (cold_temperature_mired - warm_temperature_mired)
         )
@@ -127,16 +222,36 @@ class BrightnessCalculator:
             "Computed brightness, c: %d, w: %d", cold_brightness, warm_brightness
         )
 
-        if cold_brightness > 255:
-            match self.priority:
-                case BrightnessTemperaturePriority.BRIGHTNESS:
-                    pass
-                case BrightnessTemperaturePriority.TEMPERATURE:
-                    pass
-                case BrightnessTemperaturePriority.MIXED:
-                    pass
+        return cold_brightness, warm_brightness
 
-        # Clamp brightness to acceptable ranges
-        warm_brightness = min(warm_brightness, 255)
-        cold_brightness = min(cold_brightness, 255)
-        return warm_brightness, cold_brightness
+    def _find_closest_achievable_target(
+        self,
+        target_temperature_mired: int,
+        warm_temperature_mired: int,
+        cold_temperature_mired: int,
+    ):
+        def brightness_value(temp):
+            """Compute the combined brightness given a temperature"""
+            return int(
+                BRIGHTNESS_RANGE[1]
+                * (cold_temperature_mired - warm_temperature_mired)
+                / (2 * (temp - warm_temperature_mired))
+            )
+
+        half_temperature_mired = int(
+            (warm_temperature_mired + cold_temperature_mired) / 2
+        )
+
+        # Init variables
+        closest_temperature_mired, best_distance = cold_temperature_mired, math.inf
+
+        # Distance between target point and hyperbolic curve of achievable brightness targets
+        for x in range(cold_temperature_mired, half_temperature_mired):
+            d = (target_temperature_mired - x) ** 2 + (
+                self.target_brightness - brightness_value(x)
+            ) ** 2
+            if d < best_distance:
+                # _LOGGER.debug("Found better x: %d, y: %d, d: %d", x, brightness_value(x), d)
+                closest_temperature_mired, best_distance = x, d
+
+        return closest_temperature_mired, brightness_value(closest_temperature_mired)

@@ -10,9 +10,9 @@ logger:
     custom_components.light_temperature_mixer.sensor: info
     # homeassistant.components.light: debug
 
-debugpy:
-  start: true
-  wait: false
+# debugpy:
+#   start: true
+#   wait: false
 
 light:
   # - platform: cct_virtual_light

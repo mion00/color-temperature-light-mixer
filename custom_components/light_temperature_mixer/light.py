@@ -173,10 +173,10 @@ class TemperatureMixerLight(LightGroup):
             state.state != STATE_UNAVAILABLE for state in states.values()
         )
 
-        brightnesses: list[str] = list(
+        brightnesses: list[int] = list(
             find_state_attributes(list(on_states.values()), ATTR_BRIGHTNESS)
         )
-        self._attr_brightness = mean_int(*brightnesses) if brightnesses else None
+        self._attr_brightness = int(sum(brightnesses) / 2) if brightnesses else None
         self._attr_color_temp_kelvin = self._compute_color_temp_kelvin(on_states)
 
     def _compute_color_temp_kelvin(self, on_states: dict[str, State]) -> int | None:
@@ -219,9 +219,9 @@ class TemperatureMixerLight(LightGroup):
         Given a combination of brightness or color_temp_kelvin, compute the required brightnesses
         for all the lights in the group.
         """
-        # _LOGGER.debug(
-        #     "%s: turn on with params: %s", self._friendly_name_internal(), kwargs
-        # )
+        _LOGGER.debug(
+            "%s: turn on with params: %s", self._friendly_name_internal(), kwargs
+        )
 
         # Extract information about the target temperature and brightness passed as kwargs, if available.
         # Otherwise try to maintain the currently set temperature and brightness, restoring them from the dedicated sensors if unavailable locally
@@ -253,7 +253,8 @@ class TemperatureMixerLight(LightGroup):
 
             return int(state.state)
 
-        # If one of the two parameter (brightness/temp) is undefined, read the value from the restored sensors
+        # If one of the two parameter (brightness/temp) is undefined,
+        # it means we do not have a state to fallback to, so read the values from the restored sensors
         if target_brightness is None:
             target_brightness = restore_state(ATTR_BRIGHTNESS)
             _LOGGER.debug(
@@ -261,7 +262,6 @@ class TemperatureMixerLight(LightGroup):
                 self._friendly_name_internal(),
                 target_brightness,
             )
-
         if target_temp_kelvin is None:
             target_temp_kelvin = restore_state(ATTR_COLOR_TEMP_KELVIN)
             _LOGGER.debug(
@@ -285,6 +285,12 @@ class TemperatureMixerLight(LightGroup):
             await self._turn_on_lights(ww_settings, cw_settings)
             return
 
+        # Clamp between min and max possible temperatures
+        target_temp_kelvin = min(
+            self.cold_light[ATTR_COLOR_TEMP_KELVIN],
+            max(target_temp_kelvin, self.warm_light[ATTR_COLOR_TEMP_KELVIN]),
+        )
+
         brightness_calculator = BrightnessCalculator(
             self.min_color_temp_kelvin,
             self.max_color_temp_kelvin,
@@ -292,7 +298,7 @@ class TemperatureMixerLight(LightGroup):
             target_brightness,  # type: ignore
             priority,
         )
-        ww_brightness, cw_brightness = brightness_calculator.required_brightnesses()
+        ww_brightness, cw_brightness = brightness_calculator.compute_brightnesses()
 
         # Personalize the service data with the light-specific brightness
         ww_settings = TurnOnSettings(
@@ -356,7 +362,7 @@ class TemperatureMixerLight(LightGroup):
             target = {ATTR_ENTITY_ID: light.entity_id}
             service_data = light.common_data
 
-            if light.brightness:
+            if light.brightness is not None:
                 service_data[ATTR_BRIGHTNESS] = light.brightness
 
             _LOGGER.debug(
