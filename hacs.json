@@ -1,6 +1,6 @@
 {
-    "name": "CCT virtual light",
-    "filename": "cct_virtual_light.zip",
+    "name": "Color temperature light mixer",
+    "filename": "color_temperature_light_mizer.zip",
     "hide_default_branch": true,
     "homeassistant": "2024.4.0",
     "render_readme": true,
