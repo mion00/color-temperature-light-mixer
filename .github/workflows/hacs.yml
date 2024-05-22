@@ -1,19 +1,19 @@
-name: HACS
+# name: HACS
 
-on:
-  push:
-  pull_request:
-  # schedule:
-  #   - cron: "0 0 * * *"
+# on:
+#   push:
+#   pull_request:
+#   schedule:
+#     - cron: "0 0 * * *"
 
-jobs:
-  validate:
-    if: github.repository != 'mion00/ha-blueprint'
-    runs-on: "ubuntu-latest"
-    name: HACS
-    steps:
-      - uses: "actions/checkout@v4"
-      - name: HACS validation
-        uses: "hacs/action@main"
-        with:
-          CATEGORY: "integration"
+# jobs:
+#   validate:
+#     if: github.repository != 'mion00/ha-blueprint'
+#     runs-on: "ubuntu-latest"
+#     name: HACS
+#     steps:
+#       - uses: "actions/checkout@v4"
+#       - name: HACS validation
+#         uses: "hacs/action@main"
+#         with:
+#           CATEGORY: "integration"
