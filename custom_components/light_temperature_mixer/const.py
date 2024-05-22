@@ -1,13 +1,10 @@
 """Constants for cct_virtual_light."""
 
-from enum import StrEnum
 from logging import Logger, getLogger
-from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     DOMAIN as LIGHT_DOMAIN,
 )
@@ -37,6 +34,7 @@ CONF_DEFAULT_COLD_LIGHT_TEMPERATURE = 6000
 
 
 def is_capitalized(value: str) -> bool:
+    """Check if the word is capitalized."""
     return value[0].isupper()
 
 

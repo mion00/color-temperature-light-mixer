@@ -1,11 +1,12 @@
-# Import the device class from the component that you want to support
+"""Light platform."""
+
 import asyncio
 from collections.abc import Awaitable
 import logging
 from typing import Any
 
 from homeassistant.components.group.light import FORWARDED_ATTRIBUTES, LightGroup
-from homeassistant.components.group.util import find_state_attributes, mean_int
+from homeassistant.components.group.util import find_state_attributes
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
@@ -44,19 +45,6 @@ from .helper import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-# INNER_LIGHT_SCHEMA = {
-#     vol.Required(CONF_ENTITY_ID): cv.entity_id,
-#     vol.Required(ATTR_COLOR_TEMP_KELVIN): vol.Range(min=0),
-# }
-
-# PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-#     {
-#         vol.Required(CONF_NAME): cv.string,
-#         vol.Required(CONF_WARM_LIGHT): INNER_LIGHT_SCHEMA,
-#         vol.Required(CONF_COLD_LIGHT): INNER_LIGHT_SCHEMA,
-#     }
-# )
 
 
 async def async_setup_entry(
@@ -109,7 +97,7 @@ async def async_setup_entry(
 
 
 class TemperatureMixerLight(LightGroup):
-    """Light group that mixes a group of lights having different color temperature"""
+    """Light group that mixes a group of lights having different color temperature."""
 
     _attr_has_entity_name = True
     _attr_name = None  # This is the main feature of the service
@@ -121,9 +109,10 @@ class TemperatureMixerLight(LightGroup):
         cold_light: dict[str, Any],
         config_id: str,
     ) -> None:
+        """Initialize the CCT light."""
         self._attr_unique_id = config_id
         self._attr_device_info = DeviceInfo(
-            identifiers=set([(DOMAIN, config_id)]),
+            identifiers={(DOMAIN, config_id)},
             entry_type=DeviceEntryType.SERVICE,
             name=name,
         )
@@ -136,7 +125,7 @@ class TemperatureMixerLight(LightGroup):
         self._attr_min_color_temp_kelvin = warm_light[ATTR_COLOR_TEMP_KELVIN]
         self._attr_max_color_temp_kelvin = cold_light[ATTR_COLOR_TEMP_KELVIN]
         self._attr_color_mode = ColorMode.COLOR_TEMP
-        self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+        self._attr_supported_color_modes = set(ColorMode.COLOR_TEMP)
 
         self.warm_light = warm_light
         self.cold_light = cold_light
@@ -144,6 +133,7 @@ class TemperatureMixerLight(LightGroup):
 
     @callback
     def async_update_group_state(self) -> None:
+        """Update the state of the light group."""
         # _LOGGER.debug("Updating group state")
         states = {
             entity_id: state
@@ -180,10 +170,7 @@ class TemperatureMixerLight(LightGroup):
         self._attr_color_temp_kelvin = self._compute_color_temp_kelvin(on_states)
 
     def _compute_color_temp_kelvin(self, on_states: dict[str, State]) -> int | None:
-        """
-        Given the dictionary of states containing the lights that are currently on,
-        compute the combined temperature of the light group as a weighted average of the two lights temperatures.
-        """
+        """Given the dictionary of states containing the lights that are currently on, compute the combined temperature of the light group as a weighted average of the two lights temperatures."""
         # If no light is on, we are unable to compute the temperature
         if not on_states:
             return
@@ -215,10 +202,7 @@ class TemperatureMixerLight(LightGroup):
         return computed_temp
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """
-        Given a combination of brightness or color_temp_kelvin, compute the required brightnesses
-        for all the lights in the group.
-        """
+        """Given a combination of brightness or color_temp_kelvin, compute the required brightnesses for all the lights in the group."""
         _LOGGER.debug(
             "%s: turn on with params: %s", self._friendly_name_internal(), kwargs
         )
@@ -244,7 +228,7 @@ class TemperatureMixerLight(LightGroup):
             priority = BrightnessTemperaturePriority.BRIGHTNESS
 
         def restore_state(sensor_type: str) -> int | None:
-            """Restore the state of the given sensor from the ad-hoc restorable sensor, if it is available"""
+            """Restore the state of the given sensor from the ad-hoc restorable sensor, if it is available."""
             restored_sensors_ids = self.hass.data[DOMAIN].get(self.config_id)
             state = self.hass.states.get(restored_sensors_ids[sensor_type])
 
@@ -340,7 +324,7 @@ class TemperatureMixerLight(LightGroup):
     #     )
 
     def _fire_turn_off_signal(self):
-        """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off"""
+        """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off."""
         # Check that we have a value for both brigthness and temperature before firing the signal
         if self.brightness is None or self.color_temp_kelvin is None:
             return

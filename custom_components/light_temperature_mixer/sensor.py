@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
 from homeassistant.components.sensor import RestoreSensor
@@ -33,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_devices: AddEntitiesCallback
 ):
-    """Set up the sensor platform from a ConfigEntry"""
+    """Set up the sensor platform from a ConfigEntry."""
     # config = entry.as_dict()["data"]
 
     brightness = CCTRestoreSensor(
@@ -55,7 +56,7 @@ async def async_setup_entry(
 
 
 class CCTRestoreSensor(RestoreSensor):
-    """Restorable virtual sensor tracking the last state of a CCT light before turning off"""
+    """Restorable virtual sensor tracking the last state of a CCT light before turning off."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -67,24 +68,21 @@ class CCTRestoreSensor(RestoreSensor):
         config_id: str,
         name: str,
         monitored_value: str,
-        device_class: Optional[SensorDeviceClass] = None,
-        unit_of_measurement: Optional[str] = None,
+        device_class: SensorDeviceClass | None = None,
+        unit_of_measurement: str | None = None,
     ) -> None:
-        """Initialize the sensor"""
+        """Initialize the sensor."""
         self._attr_unique_id = f"{config_id}_{monitored_value}"
         self._attr_name = name
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit_of_measurement
-        self._attr_device_info = DeviceInfo(identifiers=set([(DOMAIN, config_id)]))
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, config_id)})
         self.monitored_value = monitored_value
         self.config_id = config_id
-        self.event_listener_disconnect: Optional[CALLBACK_TYPE] = None
+        self.event_listener_disconnect: CALLBACK_TYPE | None = None
 
     async def async_added_to_hass(self):
-        """
-        Restore the previous state if available.
-        Subscribe to the turn-off dispatcher signal from the CCT light
-        """
+        """Restore the previous state if available. Subscribe to the turn-off dispatcher signal from the CCT light."""
 
         # Keep track of the entity_id of each sensor, to be discoverable by the light entity
         data = self.hass.data[DOMAIN].setdefault(self.config_id, {})
@@ -115,6 +113,7 @@ class CCTRestoreSensor(RestoreSensor):
         )
 
     async def async_will_remove_from_hass(self):
+        """Clean up the event listener."""
         if self.event_listener_disconnect:
             _LOGGER.debug(
                 "%s: shutting down event listener", self._friendly_name_internal()
@@ -123,10 +122,7 @@ class CCTRestoreSensor(RestoreSensor):
 
     @callback
     async def cct_light_off_callback(self, event: Mapping[str, Any]):
-        """
-        Callback for when the CCT light turns off.
-        Keep track of the state of the CCT light before turning off, based on the monitored_value
-        """
+        """Keep track of the value of the `monitored_state` before turning off."""
         _LOGGER.debug("%s: event %s", self._friendly_name_internal(), event)
 
         light_entity = event.get(ATTR_ENTITY_ID)

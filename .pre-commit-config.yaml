@@ -6,13 +6,13 @@ repos:
   #       entry: scripts/update_manifest
   #       language: script
   #       files: ^(custom_components/.+/const\.py|requirements\.txt)$
-  # - repo: https://github.com/charliermarsh/ruff-pre-commit
-  #   rev: v0.3.5
-  #   hooks:
-  #     - id: ruff
-  #       args:
-  #         - --fix
-  #       files: ^(custom_components|bin|tests)/.+\.py$
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.3.5
+    hooks:
+      - id: ruff
+        args:
+          - --fix
+        files: ^(custom_components|bin|tests)/.+\.py$
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2
     hooks:
@@ -74,11 +74,11 @@ repos:
         types: [python]
         require_serial: true
         files: ^custom_components/.+\.py$
-      # - id: pylint
-      #   name: pylint
-      #   entry: scripts/run-in-env python3 -m pylint
-      #   language: system
-      #   types: [python]
+      - id: pylint
+        name: pylint
+        entry: scripts/run-in-env python3 -m pylint
+        language: system
+        types: [python]
       # Uncomment lines below to test code on every commit
 #      - id: pytest
 #        name: pytest

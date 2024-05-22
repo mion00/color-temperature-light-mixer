@@ -1,5 +1,4 @@
-"""
-Light temperature mixer used to mix two lights of different temperature a single light group within Home Assistant.
+"""Light temperature mixer used to mix two lights of different temperature a single light group within Home Assistant.
 
 For more details about this integration, please refer to
 https://github.com/mion00/cct-virtual-light
@@ -26,9 +25,9 @@ PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SENSOR]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the integration via YAML"""
+    """Set up the integration via YAML."""
     LOGGER.info("Setting up %s integration", DOMAIN)
-    data = hass.data.setdefault(DOMAIN, {})
+    # data = hass.data.setdefault(DOMAIN, {})
 
     for entry in config[DOMAIN]:
         LOGGER.debug("Forwarding setup to config entries")

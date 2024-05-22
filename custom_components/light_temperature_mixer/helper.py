@@ -1,3 +1,5 @@
+"""Utility functions and classes for computing the light brightness and temperature."""
+
 from dataclasses import dataclass
 from enum import StrEnum, auto
 import logging
@@ -13,7 +15,7 @@ BRIGHTNESS_RANGE = (1, 255)
 
 
 class BrightnessTemperaturePriority(StrEnum):
-    """Enum that indicates what to prefer in the computation of the target brightness required to (temperature, brightness) target tuple"""
+    """Enum that indicates what to prefer in the computation of the target brightness required to (temperature, brightness) target tuple."""
 
     BRIGHTNESS = auto()
     """Maintain the target brightness, at the expense of the temperature"""
@@ -25,6 +27,8 @@ class BrightnessTemperaturePriority(StrEnum):
 
 @dataclass
 class TurnOnSettings:
+    """Options to pass to the light to be turned on."""
+
     entity_id: str
     common_data: dict[str, int]
     brightness: int | None = None
@@ -32,7 +36,7 @@ class TurnOnSettings:
 
 @dataclass
 class TemperatureCalculator:
-    """Class for computing the temperature of two combined lights of different temperature, depending on their brightness level"""
+    """Class for computing the temperature of two combined lights of different temperature, depending on their brightness level."""
 
     warm_brightness: int
     """Brightness of the warm light in the range 1...255"""
@@ -44,7 +48,7 @@ class TemperatureCalculator:
     """Temperature of the cold light in kelvin"""
 
     def current_temperature(self) -> int:
-        """Compute the current combined temperature"""
+        """Compute the current combined temperature."""
         # _LOGGER.debug("Brightness: w: %d, c: %d", self.warm_brightness, self.cold_brightness)
         # _LOGGER.debug("Temperature: w: %d, c: %d", self.warm_temperature_kelvin, self.cold_temperature_kelvin)
 
@@ -64,7 +68,7 @@ class TemperatureCalculator:
 
 @dataclass
 class BrightnessCalculator:
-    """Class that given a target temperature and target, computes the brightness of the two combined lights"""
+    """Class that given a target temperature and target, computes the brightness of the two combined lights."""
 
     warm_temperature_kelvin: int
     """Temperature of the warm light in kelvin"""
@@ -80,8 +84,7 @@ class BrightnessCalculator:
     """Govern the behavior when we we want to reach a brightness and temperature outside the admissable range"""
 
     def compute_brightnesses(self) -> tuple[int, int]:
-        """
-        Compute the warm and cold light brightness required to reach the target temperature
+        """Compute the warm and cold light brightness required to reach the target temperature.
 
         Returns:
             (warm, cold) brightness in range 1-255
@@ -145,10 +148,10 @@ class BrightnessCalculator:
 
     def _target_outside_range(
         self, target_temperature_mired, warm_temperature_mired, cold_temperature_mired
-    ):
-        """
-        Given a target_temperature outside the achievable range, compute a new target_temperature or target_brightness depending
-        on the configured BrightnessTemperaturePriority
+    ) -> tuple[int, int]:
+        """Compute ad adjusted brightness and temperature when outside the achievable range.
+
+        Given a target_temperature outside the achievable range, compute a new target_temperature or target_brightness depending on the configured BrightnessTemperaturePriority.
         """
         match self.priority:
             case BrightnessTemperaturePriority.BRIGHTNESS:
@@ -205,7 +208,7 @@ class BrightnessCalculator:
         warm_temperature_mired,
         cold_temperature_mired,
     ):
-        """Compute the warm and cold brightnesses required to reach the target temperature and brightness combo"""
+        """Compute the warm and cold brightnesses required to reach the target temperature and brightness combo."""
 
         cold_brightness = round(
             (2 * target_brightness)
@@ -231,7 +234,7 @@ class BrightnessCalculator:
         cold_temperature_mired: int,
     ):
         def brightness_value(temp):
-            """Compute the combined brightness given a temperature"""
+            """Compute the combined brightness given a temperature."""
             return int(
                 BRIGHTNESS_RANGE[1]
                 * (cold_temperature_mired - warm_temperature_mired)
