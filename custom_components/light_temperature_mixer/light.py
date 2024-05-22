@@ -125,7 +125,7 @@ class TemperatureMixerLight(LightGroup):
         self._attr_min_color_temp_kelvin = warm_light[ATTR_COLOR_TEMP_KELVIN]
         self._attr_max_color_temp_kelvin = cold_light[ATTR_COLOR_TEMP_KELVIN]
         self._attr_color_mode = ColorMode.COLOR_TEMP
-        self._attr_supported_color_modes = set(ColorMode.COLOR_TEMP)
+        self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
 
         self.warm_light = warm_light
         self.cold_light = cold_light
