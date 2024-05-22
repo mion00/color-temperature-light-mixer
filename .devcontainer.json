@@ -19,7 +19,10 @@
                 "ryanluker.vscode-coverage-gutters",
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
-                "ms-python.pylint"
+                "ms-python.pylint",
+                "streetsidesoftware.code-spell-checker",
+                "EditorConfig.EditorConfig",
+                "mhutchie.git-graph"
             ],
             "settings": {
                 "files.eol": "\n",

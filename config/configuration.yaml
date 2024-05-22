@@ -1,14 +1,12 @@
 # https://www.home-assistant.io/integrations/default_config/
-default_config:
+history:
+logbook:
 
 # https://www.home-assistant.io/integrations/logger/
 logger:
-  default: error
+  default: warn
   logs:
-    custom_components.light_temperature_mixer: debug
-    custom_components.light_temperature_mixer.light: debug
-    custom_components.light_temperature_mixer.sensor: info
-    # homeassistant.components.light: debug
+    custom_components.color_temperature_light_mixer: debug
 
 # debugpy:
 #   start: true
