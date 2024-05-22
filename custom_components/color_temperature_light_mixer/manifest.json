@@ -1,6 +1,6 @@
 {
-    "name": "Color temperature light mixer",
     "domain": "color_temperature_light_mixer",
+    "name": "Color temperature light mixer",
     "codeowners": [
         "@mion00"
     ],
