@@ -14,8 +14,8 @@ import homeassistant.helpers.config_validation as cv
 
 LOGGER: Logger = getLogger(__package__)
 
-NAME = "Light temperature mixer"
-DOMAIN = "light_temperature_mixer"
+NAME = "Color temperature light mixer"
+DOMAIN = "color_temperature_light_mixer"
 
 
 BRIGHTNESS_SENSOR_NAME = "Restored brightness"

@@ -186,7 +186,7 @@ input_boolean:
   # warm_white_on_1:
   # cold_white_on_1:
 
-light_temperature_mixer:
+color_temperature_light_mixer:
   - name: Virtual
     warm_light_entity_id: light.warm_white
     warm_light_color_temp_kelvin: 3000

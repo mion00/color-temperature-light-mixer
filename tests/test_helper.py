@@ -1,8 +1,10 @@
-from custom_components.light_temperature_mixer.const import (
+"""Test the helper utilities."""
+
+from custom_components.color_temperature_light_mixer.const import (
     CONF_DEFAULT_COLD_LIGHT_TEMPERATURE,
     CONF_DEFAULT_WARM_LIGHT_TEMPERATURE,
 )
-from custom_components.light_temperature_mixer.helper import (
+from custom_components.color_temperature_light_mixer.helper import (
     BRIGHTNESS_RANGE,
     BrightnessCalculator,
     BrightnessTemperaturePriority,
@@ -14,8 +16,10 @@ from homeassistant.util.color import (
 
 
 class TestBrightnessCalculator:
+    """Test the BrightnessCalculator."""
 
     def test_full_warm_only(self):
+        """Full brightness to warm."""
         bc = BrightnessCalculator(
             CONF_DEFAULT_WARM_LIGHT_TEMPERATURE,
             CONF_DEFAULT_COLD_LIGHT_TEMPERATURE,
@@ -27,6 +31,7 @@ class TestBrightnessCalculator:
         assert cw == 0
 
     def test_full_cold_only(self):
+        """Full brightness to cold."""
         bc = BrightnessCalculator(
             CONF_DEFAULT_WARM_LIGHT_TEMPERATURE,
             CONF_DEFAULT_COLD_LIGHT_TEMPERATURE,
@@ -38,6 +43,8 @@ class TestBrightnessCalculator:
         assert BRIGHTNESS_RANGE[1] - 1 <= cw <= BRIGHTNESS_RANGE[1]
 
     def test_inside_range(self):
+        """Temperature inside allowable range."""
+
         target_temperature = 4000
         target_brightness = int(BRIGHTNESS_RANGE[1] / 2)
 
@@ -53,6 +60,8 @@ class TestBrightnessCalculator:
         assert cw == 126
 
     def test_middle_temperature(self):
+        """Temperature exactly in the middle point."""
+
         cold_light_mired = color_temperature_kelvin_to_mired(
             CONF_DEFAULT_COLD_LIGHT_TEMPERATURE
         )
@@ -74,6 +83,8 @@ class TestBrightnessCalculator:
         assert mid_brightness - 1 <= cw <= mid_brightness
 
     def test_full_cold_temperature_priority(self):
+        """Full brightness with cold temperature, priority to temperature."""
+
         target_temperature = CONF_DEFAULT_COLD_LIGHT_TEMPERATURE
 
         bc = BrightnessCalculator(
@@ -89,6 +100,8 @@ class TestBrightnessCalculator:
         assert BRIGHTNESS_RANGE[1] - 1 <= cw <= BRIGHTNESS_RANGE[1]
 
     def test_full_warm_temperature_priority(self):
+        """Full brightness with warm temperature, priority to temperature."""
+
         target_temperature = CONF_DEFAULT_WARM_LIGHT_TEMPERATURE
 
         bc = BrightnessCalculator(
@@ -104,6 +117,7 @@ class TestBrightnessCalculator:
         assert -1 <= cw <= 0
 
     def test_full_cold_brightness_priority(self):
+        """Full brightness with cold temperature, priority to brightness."""
 
         target_temperature = CONF_DEFAULT_COLD_LIGHT_TEMPERATURE
         target_brightness = int(BRIGHTNESS_RANGE[1])
@@ -122,6 +136,7 @@ class TestBrightnessCalculator:
         assert BRIGHTNESS_RANGE[1] - 1 <= cw <= BRIGHTNESS_RANGE[1], cw
 
     def test_full_warm_brightness_priority(self):
+        """Full brightness with warm temperature, priority to brightness."""
 
         target_temperature = CONF_DEFAULT_WARM_LIGHT_TEMPERATURE
         target_brightness = int(BRIGHTNESS_RANGE[1])
@@ -139,7 +154,9 @@ class TestBrightnessCalculator:
         assert BRIGHTNESS_RANGE[1] - 1 <= ww <= BRIGHTNESS_RANGE[1], ww
         assert BRIGHTNESS_RANGE[1] - 1 <= cw <= BRIGHTNESS_RANGE[1], cw
 
-    def test_mixed(self):
+    def test_outside_range_mixed(self):
+        """Test a (brightness, temperature) range outside the allowable range."""
+
         target_temperature = 5000
         target_brightness = int(BRIGHTNESS_RANGE[1])
         priority = BrightnessTemperaturePriority.MIXED
@@ -156,7 +173,9 @@ class TestBrightnessCalculator:
         assert ww == 234
         assert cw == 255
 
-    def test_mixed_warmer(self):
+    def test_outside_range_mixed_second_half(self):
+        """Test a (brightness, temperature) range outside the allowable range, in the warmer region of the plot."""
+
         target_temperature = 3500
         target_brightness = int(BRIGHTNESS_RANGE[1])
         priority = BrightnessTemperaturePriority.MIXED
@@ -173,7 +192,9 @@ class TestBrightnessCalculator:
         assert ww == 255
         assert cw == 240
 
-    def test_mixed_6000_189(self):
+    def test_6000_189_mixed(self):
+        """Test a (brightness, temperature) range outside the allowable range, in a random point."""
+
         target_temperature = 6000
         target_brightness = 189
         priority = BrightnessTemperaturePriority.MIXED
