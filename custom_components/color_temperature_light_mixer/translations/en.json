@@ -1,0 +1,23 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Combine two lights of different color temperatures into a single light entity",
+                "data": {
+                    "name": "Name",
+                    "warm_light_entity_id": "Warm light",
+                    "warm_light_color_temp_kelvin": "Warm light color temperature (K)",
+                    "cold_light_entity_id": "Cold light",
+                    "cold_light_color_temp_kelvin": "Cold light color temperature (K)"
+                },
+                "data_description": {
+                  "name": "The name of the light",
+                  "warm_light_entity_id": "Light acting as the warmer light source (yellow-ish color)",
+                  "warm_light_color_temp_kelvin": "Color temperature of the warm light source (in Kelvin)",
+                  "cold_light_entity_id": "Light acting as the colder light source (blu-ish color)",
+                  "cold_light_color_temp_kelvin": "Color temperature of the cold light source (in Kelvin)"
+              }
+            }
+        }
+    }
+}

@@ -1,0 +1,40 @@
+///////////////////
+target_{temp}mired
+target_{brightness}
+
+cw_{temp}mired
+ww_{temp}mired
+
+cw_{brightness}
+ww_{brightness}
+///////////////////
+
+combined_{bright} = ( ww_{brightness} + cw_{brightness} ) / 2
+total_{temp}mired = ((cw_{brightness}) / (cw_{brightness} + ww_{brightness})) (cw_{temp}mired-ww_{temp}mired) + ww_{temp}mired
+
+target_{temp}mired = 1000000 / target_{temp}
+///////////////////
+
+cw_{brightness}target = (2 combined_{bright} (total_{temp}mired - ww_{temp}mired)) / (cw_{temp}mired-ww_{temp}mired)
+ww_{brightness}target = (2 combined_{bright} (cw_{temp}mired - total_{temp}mired)) / (cw_{temp}mired-ww_{temp}mired)
+
+Target_{cw} = (cw_{temp}mired, cw_{brightness}target)
+Target_{ww} = (ww_{temp}mired, ww_{brightness}target)
+
+target_{brightness}xintercept = (2 target_{brightness} ww_{temp}mired + 255 cw_{temp}mired - 255 ww_{temp}mired ) / (2 target_{brightness})
+target_{brightness}yintercept = (255 (cw_{temp}mired - ww_{temp}mired) ) / (2 (target_{temp}mired - ww_{temp}mired))
+
+// Intercept points
+Target_{xintercept} = (target_{brightness}xintercept, target_{brightness})
+Target_{yintercept} = (target_{temp}mired, target_{brightness}yintercept)
+
+line_{intercept} : y = - (target_{brightness} x) / (target_{temp}mired - ww_{temp}mired) + (255 cw_{temp}mired + 2 target_{brightness} target_{temp}mired - 255 ww_{temp}mired) / (2 target_{temp}mired - 2 ww_{temp}mired)
+
+perpendicular_{intercept} : y = ((target_{temp}mired - ww_{temp}mired) x) / target_{brightness} + (target_{temp}mired (ww_{temp}mired - target_{temp}mired )) / target_{brightness} + target_{brightness}
+
+/////////////////////////////////
+// weighted average
+
+total_{temp}miredaverage = (cw_{brightness} cw_{temp}mired + ww_{brightness} ww_{temp}mired) / (cw_{brightness} +  ww_{brightness})
+
+Total_{average} = (total_{temp}miredaverage, combined_{bright})
