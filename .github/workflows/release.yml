@@ -36,13 +36,6 @@ jobs:
 
       - name: Read changelog generated from commitizen
         run: |
-          cz changelog --dry-run ${{ github.ref_name }} > ${{ github.workspace }}-CHANGELOG.txt
-          echo "::group::Changelog content"
-          cat ${{ github.workspace }}-CHANGELOG.txt
-          echo "::endgroup::"
-
-      - name: Read changelog generated from commitizen
-        run: |
           cz changelog --template scripts/CHANGELOG-increment-only.md.j2 --dry-run ${{ github.ref_name }} > ${{ github.workspace }}-CHANGELOG.txt
           echo "::group::Changelog content"
           cat ${{ github.workspace }}-CHANGELOG.txt

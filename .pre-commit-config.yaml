@@ -64,6 +64,10 @@ repos:
         exclude: ^CHANGELOG\.md$
 
       # Uncomment lines below if you want to follow classical GitHub flow style development
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.27.0
+    hooks:
+      - id: commitizen
 #      - id: no-commit-to-branch
 #        args:
 #          - --branch=dev
