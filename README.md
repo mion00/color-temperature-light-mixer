@@ -16,8 +16,26 @@ Useful for instance with LED strips having separate cold white/warm white channe
 An example application is a "dumb"/analog LED strip with controlled by a Shelly RGBW2, configured in _4 white channels_ mode, where the cold light and warm light channels are each controlled by a separate channel in the Shelly.
 
 <p align="center">
-    <img src="docs/cct_light_integration_demo.gif"/>
+    <img src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/cct_light_integration_demo.gif?raw=true"/>
 </p>
+
+---
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Installation](#installation)
+  - [Install from HACS (recommended)](#install-from-hacs-recommended)
+  - [Manual installation](#manual-installation)
+- [Configuration](#configuration)
+  - [YAML file](#yaml-file)
+- [Track updates](#track-updates)
+- [Known Limitations and issues](#known-limitations-and-issues)
+- [Troubleshooting](#troubleshooting)
+- [Contributions are welcome!](#contributions-are-welcome)
+- [Authors & contributors](#authors--contributors)
+  - [Credits](#credits)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Installation
 

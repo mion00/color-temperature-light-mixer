@@ -57,6 +57,11 @@ repos:
       - id: check-json
         files: ^(custom_components|tests)/.+\.json$
       - id: trailing-whitespace
+  - repo: https://github.com/thlorenz/doctoc
+    rev: v2.2.0
+    hooks:
+      - id: doctoc
+
       # Uncomment lines below if you want to follow classical GitHub flow style development
 #      - id: no-commit-to-branch
 #        args:
