@@ -228,3 +228,4 @@ version_files = [
     "pyproject.toml",
     "custom_components/color_temperature_light_mixer/manifest.json:version"
 ]
+update_changelog_on_bump = "true"
