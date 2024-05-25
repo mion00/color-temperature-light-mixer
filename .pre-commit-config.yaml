@@ -61,6 +61,7 @@ repos:
     rev: v2.2.0
     hooks:
       - id: doctoc
+        exclude: ^CHANGELOG\.md$
 
       # Uncomment lines below if you want to follow classical GitHub flow style development
 #      - id: no-commit-to-branch
