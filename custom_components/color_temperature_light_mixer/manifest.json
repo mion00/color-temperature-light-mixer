@@ -7,10 +7,10 @@
     ],
     "config_flow": true,
     "dependencies": [],
-    "documentation": "https://github.com/mion00/color-temperature-light_mixer",
+    "documentation": "https://github.com/mion00/color-temperature-light-mixer",
     "integration_type": "service",
     "iot_class": "calculated",
-    "issue_tracker": "https://github.com/mion00/color-temperature-light_mixer/issues",
+    "issue_tracker": "https://github.com/mion00/color-temperature-light-mixer/issues",
     "requirements": [],
     "version": "0.0.1"
 }
