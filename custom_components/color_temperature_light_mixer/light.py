@@ -265,6 +265,15 @@ class TemperatureMixerLight(LightGroup):
 
         await self._turn_on_lights(ww=ww_settings, cw=cw_settings)
 
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Forward the turn_off command to all the lights in the light group."""
+        self._fire_turn_off_signal()
+
+        _LOGGER.debug(
+            "%s: invoking turn_off for the group", self._friendly_name_internal()
+        )
+        await super().async_turn_off(**kwargs)
+
     def _fire_turn_off_signal(self):
         """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off."""
         # Check that we have a value for both brigthness and temperature before firing the signal
