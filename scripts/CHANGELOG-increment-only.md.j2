@@ -1,0 +1,17 @@
+{#- Customize the default template of commitizen to only include the body of the release notes, since the tag is already part of the release name #}
+{% for entry in tree %}
+{% for change_key, changes in entry.changes.items() %}
+
+{% if change_key %}
+### {{ change_key }}
+{% endif %}
+
+{% for change in changes %}
+{% if change.scope %}
+- **{{ change.scope }}**: {{ change.message }}
+{% elif change.message %}
+- {{ change.message }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
