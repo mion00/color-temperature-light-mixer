@@ -1,4 +1,4 @@
-# Color temperature light mixer
+# Color Temperature Light Mixer
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
@@ -26,25 +26,27 @@ An example application is a "dumb"/analog LED strip with controlled by a Shelly 
 1. Have [HACS][hacs] installed, this will allow you to easily manage and track updates.
 1. Add this repository as a _Custom repository_ ([more details](https://hacs.xyz/docs/faq/custom_repositories/)) or just press the button below:\
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)][hacs-repository]
-1. Once added, search in HACS for "Color temperature light mixer".
-1. Click Install.
-1. _If you want to configure component via Home Assistant UI..._\
-    in the HA UI go to "Configuration" > "Integrations" click "+" and search for "Color temperature light mixer".
-1. _If you want to configure component via `configuration.yaml`..._\
-    follow the instructions below, then restart Home Assistant.
+1. Once added, search in HACS for "Color Temperature Light Mixer".
+1. Click __Install__.
+1. You can configure the component via:
+    1. Home Assistant UI\
+    In the HA UI go to "Configuration" > "Integrations" click "+" and search for "Color Temperature Light Mixer".
+    1. `configuration.yaml`\
+    Follow the instructions below, then restart Home Assistant.
 
 ### Manual installation
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
 1. If you do not have a `custom_components` directory (folder) there, you need to create it.
 1. In the `custom_components` directory (folder) create a new folder called `color_temperature_light_mixer`.
-1. Download file `integration_blueprint.zip` from the [latest release section][releases-latest] in this repository.
+1. Download the file `color_temperature_light_mixer.zip` from the [latest release section][releases-latest] in this repository.
 1. Extract _all_ files from this archive you downloaded in the directory (folder) you created.
 1. Restart Home Assistant
-1. _If you want to configure component via Home Assistant UI..._\
-    in the HA UI go to "Configuration" > "Integrations" click "+" and search for "Color temperature light mixer".
-1. _If you want to configure component via `configuration.yaml`..._\
-    follow the instructions below, then restart Home Assistant.
+1. You can configure the component via:
+    1. Home Assistant UI\
+    In the HA UI go to "Configuration" > "Integrations" click "+" and search for "Color Temperature Light Mixer".
+    1. `configuration.yaml`\
+    Follow the instructions below, then restart Home Assistant.
 
 ## Configuration
 
@@ -60,7 +62,6 @@ Name | Description
 `cold_light_entity_id` | The `entity_id` representing the cold light (blu-ish color).
 `cold_light_color_temp_kelvin` | The color temperature of the cold light, in Kelvin.
 
-
 ### YAML file
 
 The same configuration options can be specified via the `configuration.yaml`.
@@ -75,12 +76,12 @@ color_temperature_light_mixer:
     cold_light_color_temp_kelvin: 6000
 ```
 
-**This integration will set up the following platforms:**
+__This integration will set up the following platforms:__
 
 Platform | Description
 -- | --
 `light` | The color changing temperature light.
-`sensor` | Two diagnostic sensors to maintain the state of the light across HA reboots.
+`sensor` | Two supporting sensors (hidden by default) to maintain the state of the light across HA reboots.
 
 ## Track updates
 
@@ -96,14 +97,16 @@ Check the specifications of your lights to see if this type of setup is supporte
 ## Troubleshooting
 
 To enable debug logs use this configuration:
+
 ```yaml
-# Example configuration.yaml entry
+# configuration.yaml
 logger:
   default: info
   logs:
     custom_components.color_temperature_light_mixer: debug
 ```
-... then restart HA.
+
+...then restart HA.
 
 ## Contributions are welcome!
 

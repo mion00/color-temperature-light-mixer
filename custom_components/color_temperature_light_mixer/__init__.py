@@ -28,7 +28,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the integration via YAML."""
     LOGGER.info("Setting up %s integration", DOMAIN)
 
-    for entry in config[DOMAIN]:
+    for entry in config.get(DOMAIN, []):
         LOGGER.debug("Forwarding setup to config entries")
         hass.async_create_task(
             hass.config_entries.flow.async_init(
