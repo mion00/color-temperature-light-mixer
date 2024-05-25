@@ -28,11 +28,16 @@ jobs:
       - name: "Install Python dependencies"
         run: pip install -r requirements-dev.txt
 
-      - name: Read changelog geenrated from commitizen
-        run: cz changelog --dry-run > ${{ github.workspace }}-CHANGELOG.txt
+      - name: Read changelog generated from commitizen
+        run: |
+          cz changelog --dry-run ${{ github.ref_name }} > ${{ github.workspace }}-CHANGELOG.txt
+          echo "::group::Changelog content"
+          cat ${{ github.workspace }}-CHANGELOG.txt
+          echo "::endgroup::"
 
       - name: "Release to GitHub"
         uses: softprops/action-gh-release@v2
         with:
-          body_path: ${{ github.workspace }}-CHANGELOG.txt
           files: custom_components/color_temperature_light_mixer.zip
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          fail_on_unmatched_files: true
