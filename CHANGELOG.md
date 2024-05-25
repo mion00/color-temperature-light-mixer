@@ -1,3 +1,9 @@
+## 0.0.5 (2024-05-25)
+
+### Fix
+
+- **light.py**: implement method async_turn_off() to fire custom signal for sensors
+
 ## 0.0.4 (2024-05-25)
 
 ## 0.0.3 (2024-05-25)
