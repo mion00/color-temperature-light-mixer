@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Awaitable
+import json
 import logging
 from typing import Any
 
@@ -13,12 +14,12 @@ from homeassistant.components.light import (
     DOMAIN as DOMAIN_LIGHT,
     ColorMode,
 )
+from homeassistant.components.sensor import RestoreSensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_ENTITY_ID,
     CONF_NAME,
-    CONF_UNIQUE_ID,
     SERVICE_TURN_ON,
     STATE_ON,
     STATE_UNAVAILABLE,
@@ -26,7 +27,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -34,7 +34,6 @@ from .const import (
     CONF_COLD_LIGHT_TEMPERATURE_KELVIN,
     CONF_WARM_LIGHT,
     CONF_WARM_LIGHT_TEMPERATURE_KELVIN,
-    DISPATCHER_SIGNAL_TURN_OFF,
     DOMAIN,
 )
 from .helper import (
@@ -69,7 +68,7 @@ async def async_setup_entry(
     async_add_devices([light])
 
 
-class TemperatureMixerLight(LightGroup):
+class TemperatureMixerLight(LightGroup, RestoreSensor):
     """Light group that mixes a group of lights having different color temperature."""
 
     _attr_has_entity_name = True
@@ -103,6 +102,25 @@ class TemperatureMixerLight(LightGroup):
         self.warm_light = warm_light
         self.cold_light = cold_light
         self.config_id = config_id
+        self.previous_turn_on_state = (
+            {}
+        )  # Initialize previous state to empty to avoid None
+
+    async def async_added_to_hass(self) -> None:
+        """Read the previous turn_on state from the restore data, if available."""
+        restored_data = await self.async_get_last_sensor_data()
+        # Deserialized the saved state from JSON, if available
+        if restored_data and restored_data.native_value:
+            serialized_state: str = restored_data.native_value  # type: ignore -> we know it is as string
+            self.previous_turn_on_state = json.loads(serialized_state)
+            _LOGGER.debug(
+                "%s: restoring previous_turn_on_state: %s",
+                self._friendly_name_internal(),
+                self.previous_turn_on_state,
+            )
+
+        # Continue initialization of parent object
+        await super().async_added_to_hass()
 
     @callback
     def async_update_group_state(self) -> None:
@@ -198,29 +216,19 @@ class TemperatureMixerLight(LightGroup):
             target_temp_kelvin = self.color_temp_kelvin
             priority = BrightnessTemperaturePriority.BRIGHTNESS
 
-        def restore_state(sensor_type: str) -> int | None:
-            """Restore the state of the given sensor from the ad-hoc restorable sensor, if it is available."""
-            restored_sensors_ids = self.hass.data[DOMAIN].get(self.config_id)
-            state = self.hass.states.get(restored_sensors_ids[sensor_type])
-
-            if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-                return
-
-            return int(state.state)
-
         # If one of the two parameter (brightness/temp) is undefined,
-        # it means we do not have a state to fallback to, so read the values from the restored sensors
+        # it means we do not have a state to fallback to, so read the values from our fallback state, if available
         if target_brightness is None:
-            target_brightness = restore_state(ATTR_BRIGHTNESS)
+            target_brightness = self.previous_turn_on_state.get(ATTR_BRIGHTNESS)
             _LOGGER.debug(
-                "%s: restoring previous brightness: %s",
+                "%s: using previous brightness: %s",
                 self._friendly_name_internal(),
                 target_brightness,
             )
         if target_temp_kelvin is None:
-            target_temp_kelvin = restore_state(ATTR_COLOR_TEMP_KELVIN)
+            target_temp_kelvin = self.previous_turn_on_state.get(ATTR_COLOR_TEMP_KELVIN)
             _LOGGER.debug(
-                "%s: restoring previous temperature: %s",
+                "%s: using previous temperature: %s",
                 self._friendly_name_internal(),
                 target_temp_kelvin,
             )
@@ -267,27 +275,27 @@ class TemperatureMixerLight(LightGroup):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Forward the turn_off command to all the lights in the light group."""
-        self._fire_turn_off_signal()
+        # Save our turned on state
+        self._save_turn_on_state()
 
         _LOGGER.debug(
-            "%s: invoking turn_off for the group", self._friendly_name_internal()
+            "%s: invoking turn_off for the light group", self._friendly_name_internal()
         )
         await super().async_turn_off(**kwargs)
 
-    def _fire_turn_off_signal(self):
-        """Fire a signal to keep track of the brightness and temperature in separate sensors before we turn off."""
-        # Check that we have a value for both brigthness and temperature before firing the signal
+    def _save_turn_on_state(self):
+        """Store the turned on state as a serialized JSON string, to read it in case HA restarts."""
+        # Check that we have a value for both brightness and temperature before firing the signal
         if self.brightness is None or self.color_temp_kelvin is None:
             return
+        _LOGGER.debug("%s: saving serialized state", self._friendly_name_internal())
 
-        signal_data = {
-            CONF_UNIQUE_ID: self.unique_id,
-            ATTR_ENTITY_ID: self.entity_id,
+        # Store the state as a serialized JSON string
+        serialized_state = {
             ATTR_BRIGHTNESS: self.brightness,
             ATTR_COLOR_TEMP_KELVIN: self.color_temp_kelvin,
         }
-        _LOGGER.debug("%s: firing turn off signal", self._friendly_name_internal())
-        async_dispatcher_send(self.hass, DISPATCHER_SIGNAL_TURN_OFF, signal_data)
+        self._attr_native_value = json.dumps(serialized_state)
 
     async def _turn_on_lights(
         self, ww: TurnOnSettings, cw: TurnOnSettings

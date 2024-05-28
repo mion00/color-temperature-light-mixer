@@ -28,8 +28,8 @@ An example application is a "dumb"/analog LED strip with controlled by a Shelly 
   - [Manual installation](#manual-installation)
 - [Configuration](#configuration)
   - [YAML file](#yaml-file)
-- [Track updates](#track-updates)
-- [Known Limitations and issues](#known-limitations-and-issues)
+- [Keeping track of updates](#keeping-track-of-updates)
+- [Known limitations and issues](#known-limitations-and-issues)
 - [Troubleshooting](#troubleshooting)
 - [Contributions are welcome!](#contributions-are-welcome)
 - [Authors & contributors](#authors--contributors)
@@ -94,18 +94,17 @@ color_temperature_light_mixer:
     cold_light_color_temp_kelvin: 6000
 ```
 
-__This integration will set up the following platforms:__
+This integration will set up the following entities (one for each of your defined configuration):
 
 Platform | Description
 -- | --
-`light` | The color changing temperature light.
-`sensor` | Two supporting sensors (hidden by default) to maintain the state of the light across HA reboots.
+`light` | The "virtual" color changing temperature light combining the warm and cold light entities.
 
-## Track updates
+## Keeping track of updates
 
-You can automatically track new versions of this component and update it by [HACS][hacs].
+You can automatically track new versions of this component and update it by [HACS][hacs], or follow this repository on GitHub to be notified of new releases.
 
-## Known Limitations and issues
+## Known limitations and issues
 
 - This integration makes the assumption that 100% brightness is achieved when both warm white AND cold white LEDs are on.
 Check the specifications of your lights to see if this type of setup is supported (compared instead to having only one of the strips at 100% power at a time).

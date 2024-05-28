@@ -21,7 +21,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 """Validate the configuration for this integration"""
 
-PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.LIGHT]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
