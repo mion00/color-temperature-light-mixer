@@ -1,3 +1,10 @@
+## 0.1.0 (2024-05-28)
+
+### Feat
+
+- **mixed_light.ypynb**: add Python notebook for ease of plotting
+- **light.py**: restore the state of the light without the need for two internal diagnostic sensors
+
 ## 0.0.7 (2024-05-25)
 
 ## 0.0.6 (2024-05-25)
