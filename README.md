@@ -13,9 +13,9 @@
 
 Home Assistant integration to group multiple light sources into a single "virtual" color temperature-changing light.
 
-Useful for instance with LED strips having separate cold white/warm white channels (CCT or CWWW LED), in which two separate light entities are exposed in Home Assistant, one for each color temperature. This integration groups together the two lights, allowing them to be controlled as a single entity in HA.
+Useful for instance with LED strips having separate cold white/warm white channels (CCT or CWWW LED), in which two separate light entities are available in Home Assistant, one for each color temperature. This integration groups together the two lights, allowing them to be controlled as a single entity in HA.
 
-An example application is a "dumb"/analog LED strip connected to a Shelly RGBW2, configured in _4 white channels_ mode, where the cold light and warm light channels are each controlled by a separate channel in the Shelly.
+An example application is a "dumb"/analog LED strip controlled by a Shelly RGBW2 (configured in _4 white channels_ mode), where the cold light and warm light channels are each connected to a separate channel in the Shelly.
 
 <p align="center">
     <img src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/cct_light_integration_demo.gif?raw=true"/>
@@ -25,6 +25,7 @@ An example application is a "dumb"/analog LED strip connected to a Shelly RGBW2,
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
+- [Features](#features)
 - [Installation](#installation)
   - [Install from HACS (recommended)](#install-from-hacs-recommended)
   - [Manual installation](#manual-installation)
@@ -39,11 +40,18 @@ An example application is a "dumb"/analog LED strip connected to a Shelly RGBW2,
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
+## Features
+
+- Group two lights sources under a new, "virtual" light that combines their brightness output to achieve a varied range of color temperatures.
+- The "virtual" light reaches 100% brightness by turning on both light sources (check the _Know limitations_ section below for more information and potential issues you may encounter with your specific setup).
+- Intelligently handles unreachable settings for brightness and color temperatures based on the data passed to the `light.turn_on` service. See [this Python notebook](docs/mixed_light.ipynb) for more details.
+- Can restore its own state after a reboot.
+
 ## Installation
 
 ### Install from HACS (recommended)
 
-1. Have [HACS][hacs] installed, this will allow you to easily manage and track updates.
+1. Requirements: have [HACS][hacs] installed, this will allow you to easily manage and track updates.
 1. Add this repository as a _Custom repository_ ([more details](https://hacs.xyz/docs/faq/custom_repositories/)) or just press the button below:\
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)][hacs-repository]
 1. Once added, search in HACS for "Color Temperature Light Mixer".
@@ -96,7 +104,7 @@ color_temperature_light_mixer:
     cold_light_color_temp_kelvin: 6000
 ```
 
-This integration will set up the following entities (one for each of your defined configuration):
+This integration will set up the following entities (one for each of your defined configurations):
 
 Platform | Description
 -- | --
@@ -109,9 +117,13 @@ You can automatically track new versions of this component and update it by [HAC
 ## Known limitations and issues
 
 - This integration makes the assumption that 100% brightness is achieved when both warm white AND cold white LEDs are on.
-Check the specifications of your lights to see if this type of setup is supported (compared instead to having only one of the strips at 100% power at a time).
-- At the moment only two light sources are supported per "virtual" light.
+Check the specifications of your lights to see if this type of setup is supported (compared instead to having only one of the strips at 100% power at a time).\
+A future development might include the ability to cap the output brightness for setups where this is required.
 - At the moment the assumption is that each light source "contributes" equally to the resulting temperature. This was a design choice done to keep the math required in the computations simple. In some particular setups however this might not be the case.
+
+- At the moment only two light sources are supported per "virtual" light.\
+It is nonetheless possible to create multiple "virtual" lights, each with their own pair of light sources.
+- Support for light transitions has not been appropriately tested yet.
 
 ## Troubleshooting
 
