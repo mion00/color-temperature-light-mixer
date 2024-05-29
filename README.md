@@ -15,7 +15,7 @@ Home Assistant integration to group multiple light sources into a single "virtua
 
 Useful for instance with LED strips having separate cold white/warm white channels (CCT or CWWW LED), in which two separate light entities are exposed in Home Assistant, one for each color temperature. This integration groups together the two lights, allowing them to be controlled as a single entity in HA.
 
-An example application is a "dumb"/analog LED strip with controlled by a Shelly RGBW2, configured in _4 white channels_ mode, where the cold light and warm light channels are each controlled by a separate channel in the Shelly.
+An example application is a "dumb"/analog LED strip connected to a Shelly RGBW2, configured in _4 white channels_ mode, where the cold light and warm light channels are each controlled by a separate channel in the Shelly.
 
 <p align="center">
     <img src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/cct_light_integration_demo.gif?raw=true"/>
