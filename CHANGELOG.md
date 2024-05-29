@@ -1,3 +1,9 @@
+## 0.1.1 (2024-05-29)
+
+### Fix
+
+- **light.py**: correctly keep track of previous turned on state
+
 ## 0.1.0 (2024-05-28)
 
 ### Feat
