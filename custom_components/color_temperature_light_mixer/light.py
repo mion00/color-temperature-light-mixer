@@ -102,9 +102,9 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         self.warm_light = warm_light
         self.cold_light = cold_light
         self.config_id = config_id
-        self.previous_turn_on_state = (
-            {}
-        )  # Initialize previous state to empty to avoid None
+
+        # Initialize previous state to empty dict to avoid None
+        self.previous_turn_on_state = {}
 
     async def async_added_to_hass(self) -> None:
         """Read the previous turn_on state from the restore data, if available."""
@@ -288,14 +288,18 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         # Check that we have a value for both brightness and temperature before firing the signal
         if self.brightness is None or self.color_temp_kelvin is None:
             return
-        _LOGGER.debug("%s: saving serialized state", self._friendly_name_internal())
 
         # Store the state as a serialized JSON string
-        serialized_state = {
+        self.previous_turn_on_state = {
             ATTR_BRIGHTNESS: self.brightness,
             ATTR_COLOR_TEMP_KELVIN: self.color_temp_kelvin,
         }
-        self._attr_native_value = json.dumps(serialized_state)
+        self._attr_native_value = json.dumps(self.previous_turn_on_state)
+        _LOGGER.debug(
+            "%s: saving serialized state: %s",
+            self._friendly_name_internal(),
+            self.previous_turn_on_state,
+        )
 
     async def _turn_on_lights(
         self, ww: TurnOnSettings, cw: TurnOnSettings
