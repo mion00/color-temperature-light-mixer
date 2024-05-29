@@ -1,13 +1,15 @@
+<p align="center">
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo_dark.png?raw=true#gh-dark-mode-only" width="500"/>
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo.png?raw=true#gh-light-mode-only" width="500"/><br/>
+    <a href="https://github.com/mion00/color-temperature-light-mixer/releases"><img src="https://img.shields.io/github/release/mion00/color-temperature-light-mixer.svg?style=flat-square"></a>
+    <a href="https://raw.githubusercontent.com/mion00/color-temperature-light-mixer/main/LICENSE"><img src="https://img.shields.io/github/license/mion00/color-temperature-light-mixer"></a>
+    <img src="https://img.shields.io/github/commit-activity/y/mion00/color-temperature-light-mixer.svg?style=flat-square">
+    <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square"></a>
+    <a href="https://github.com/mion00"><img src="https://img.shields.io/badge/maintainer-mion00-blue.svg?style=flat-square"></a>
+    <a href="https://community.home-assistant.io/"><img src="https://img.shields.io/badge/community-forum-brightgreen.svg?style=flat-square"></a>
+</p>
+
 # Color Temperature Light Mixer
-
-[![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
-
-[![hacs][hacs-shield]][hacs]
-[![Project Maintenance][maintenance-shield]][user_profile]
-
-[![Community Forum][forum-shield]][forum]
 
 Home Assistant integration to group multiple light sources into a single "virtual" color temperature-changing light.
 
@@ -113,17 +115,18 @@ Check the specifications of your lights to see if this type of setup is supporte
 
 ## Troubleshooting
 
-To enable debug logs use this configuration:
+You can enable debug logs in two different ways:
 
-```yaml
-# configuration.yaml
-logger:
-  default: info
-  logs:
-    custom_components.color_temperature_light_mixer: debug
-```
+- From the [integration page][integration-page] inside Home Assistant, by clicking `Enable debug logging` and then downloading the generated logs. See the [HA docs][ha-docs-diagnostics] for more information.
+- By editing `configuration.yaml` and restarting HA:
 
-...then restart HA.
+    ```yaml
+    # configuration.yaml
+    logger:
+    default: info
+    logs:
+        custom_components.color_temperature_light_mixer: debug
+    ```
 
 ## Contributions are welcome!
 
@@ -144,22 +147,11 @@ The original inspiration came from the template light provided by [gfrancesco](h
 
 This Home Assistant custom component was created and is updated using the [HA-Blueprint template](https://github.com/Limych/ha-blueprint). You can use this template to maintain your own Home Assistant custom components.
 
-***
-
-[component]: https://github.com/mion00/color-temperature-light-mixer
-[commits-shield]: https://img.shields.io/github/commit-activity/y/mion00/color-temperature-light-mixer.svg?style=popout
-[commits]: https://github.com/mion00/color-temperature-light-mixer/commits/master
-[hacs-shield]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=popout
 [hacs]: https://hacs.xyz
 [hacs-repository]: https://my.home-assistant.io/redirect/hacs_repository/?owner=mion00&repository=color-temperature-light-mixer&category=integration
-[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=popout
-[forum]: https://community.home-assistant.io/
-[license-shield]: https://img.shields.io/github/license/mion00/color-temperature-light-mixer
-[maintenance-shield]: https://img.shields.io/badge/maintainer-mion00-blue.svg?style=popout
-[releases-shield]: https://img.shields.io/github/release/mion00/color-temperature-light-mixer.svg?style=popout
-[releases]: https://github.com/mion00/color-temperature-light-mixer/releases
+[ha-docs-diagnostics]: https://www.home-assistant.io/docs/configuration/troubleshooting/#debug-logs-and-diagnostics
+[integration-page]: https://my.home-assistant.io/redirect/integration/?domain=color_temperature_light_mixer
 [releases-latest]: https://github.com/mion00/color-temperature-light-mixer/releases/latest
-[user_profile]: https://github.com/mion00
 [report_bug]: https://github.com/mion00/color-temperature-light-mixer/issues/new?template=bug_report.md
 [suggest_idea]: https://github.com/mion00/color-temperature-light-mixer/issues/new?template=feature_request.md
 [contributors]: https://github.com/mion00/color-temperature-light-mixer/graphs/contributors
