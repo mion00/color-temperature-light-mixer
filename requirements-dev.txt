@@ -1,5 +1,5 @@
 -r requirements-test.txt
-black~=24.4.0
+black~=24.4.2
 commitizen~=3.27.0
 matplotlib~=3.9.0
 packaging~=24.0.0
