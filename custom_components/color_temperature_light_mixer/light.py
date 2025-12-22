@@ -12,7 +12,11 @@ from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     DOMAIN as DOMAIN_LIGHT,
+    ATTR_TRANSITION,
     ColorMode,
+    SUPPORT_BRIGHTNESS,
+    SUPPORT_COLOR_TEMP,
+    SUPPORT_TRANSITION,
 )
 from homeassistant.components.sensor import RestoreSensor
 from homeassistant.config_entries import ConfigEntry
@@ -105,6 +109,11 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
 
         # Initialize previous state to empty dict to avoid None
         self.previous_turn_on_state = {}
+
+    @property
+    def supported_features(self):
+        """Return the supported features of this light."""
+        return SUPPORT_BRIGHTNESS | SUPPORT_COLOR_TEMP | SUPPORT_TRANSITION
 
     async def async_added_to_hass(self) -> None:
         """Read the previous turn_on state from the restore data, if available."""
@@ -237,6 +246,9 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         common_data = {
             key: value for key, value in kwargs.items() if key in FORWARDED_ATTRIBUTES
         }
+
+        if ATTR_TRANSITION in kwargs:
+            common_data[ATTR_TRANSITION] = kwargs[ATTR_TRANSITION]
 
         if not all([target_brightness, target_temp_kelvin]):
             _LOGGER.debug(
