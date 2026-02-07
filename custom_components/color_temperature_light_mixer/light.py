@@ -106,6 +106,16 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         # Initialize previous state to empty dict to avoid None
         self.previous_turn_on_state = {}
 
+    def _friendly_name(self) -> str:
+        """Return the best available name for logs."""
+        return (
+            self._cached_friendly_name
+            or self.name
+            or self.entity_id
+            or self.unique_id
+            or "unknown"
+        )
+
     async def async_added_to_hass(self) -> None:
         """Read the previous turn_on state from the restore data, if available."""
         restored_data = await self.async_get_last_sensor_data()
@@ -115,7 +125,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
             self.previous_turn_on_state = json.loads(serialized_state)
             _LOGGER.debug(
                 "%s: restoring previous_turn_on_state: %s",
-                self._friendly_name_internal(),
+                self._friendly_name(),
                 self.previous_turn_on_state,
             )
 
@@ -193,7 +203,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Given a combination of brightness or color_temp_kelvin, compute the required brightnesses for all the lights in the group."""
         _LOGGER.debug(
-            "%s: turn on with params: %s", self._friendly_name_internal(), kwargs
+            "%s: turn on with params: %s", self._friendly_name(), kwargs
         )
 
         # Extract information about the target temperature and brightness passed as kwargs, if available.
@@ -222,14 +232,14 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
             target_brightness = self.previous_turn_on_state.get(ATTR_BRIGHTNESS)
             _LOGGER.debug(
                 "%s: using previous brightness: %s",
-                self._friendly_name_internal(),
+                self._friendly_name(),
                 target_brightness,
             )
         if target_temp_kelvin is None:
             target_temp_kelvin = self.previous_turn_on_state.get(ATTR_COLOR_TEMP_KELVIN)
             _LOGGER.debug(
                 "%s: using previous temperature: %s",
-                self._friendly_name_internal(),
+                self._friendly_name(),
                 target_temp_kelvin,
             )
 
@@ -241,7 +251,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         if not all([target_brightness, target_temp_kelvin]):
             _LOGGER.debug(
                 "%s: no restored state available, turning all each light to its default state",
-                self._friendly_name_internal(),
+                self._friendly_name(),
             )
             ww_settings = TurnOnSettings(self.warm_light[CONF_ENTITY_ID], common_data)
             cw_settings = TurnOnSettings(self.cold_light[CONF_ENTITY_ID], common_data)
@@ -279,7 +289,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         self._save_turn_on_state()
 
         _LOGGER.debug(
-            "%s: invoking turn_off for the light group", self._friendly_name_internal()
+            "%s: invoking turn_off for the light group", self._friendly_name()
         )
         await super().async_turn_off(**kwargs)
 
@@ -297,7 +307,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
         self._attr_native_value = json.dumps(self.previous_turn_on_state)
         _LOGGER.debug(
             "%s: saving serialized state: %s",
-            self._friendly_name_internal(),
+            self._friendly_name(),
             self.previous_turn_on_state,
         )
 
@@ -314,7 +324,7 @@ class TemperatureMixerLight(LightGroup, RestoreSensor):
 
             _LOGGER.debug(
                 "%s: forward turn_on: %s %s",
-                self._friendly_name_internal(),
+                self._friendly_name(),
                 target,
                 service_data,
             )
