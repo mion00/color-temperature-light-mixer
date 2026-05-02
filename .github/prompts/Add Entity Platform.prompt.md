@@ -19,7 +19,7 @@ If not provided, ask for:
 
 ### 1. Create Platform Directory Structure
 
-**Directory:** `custom_components/ha_integration_domain/[platform]/`
+**Directory:** `custom_components/color_temperature_light_mixer/[platform]/`
 
 **Files to create:**
 
@@ -29,7 +29,7 @@ If not provided, ask for:
 ### 2. Platform `__init__.py` Template
 
 ```python
-"""[Platform] platform for Integration Blueprint."""
+"""[Platform] platform for Color Temperature Light Mixer."""
 
 from __future__ import annotations
 
@@ -38,10 +38,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import IntegrationBlueprintEntity
-from .[entity_file] import IntegrationBlueprint[EntityName]
+from .entity import ColorTemperatureMixerEntity
+from .[entity_file] import ColorTemperatureMixer[EntityName]
 from .const import DOMAIN
-from .coordinator import IntegrationBlueprintDataUpdateCoordinator
+from .coordinator import ColorTemperatureMixerDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -50,13 +50,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up [platform] platform."""
-    coordinator: IntegrationBlueprintDataUpdateCoordinator = hass.data[DOMAIN][
+    coordinator: ColorTemperatureMixerDataUpdateCoordinator = hass.data[DOMAIN][
         entry.entry_id
     ]
 
     async_add_entities(
         [
-            IntegrationBlueprint[EntityName](coordinator, entry),
+            ColorTemperatureMixer[EntityName](coordinator, entry),
             # Add more entities here
         ]
     )
@@ -65,7 +65,7 @@ async def async_setup_entry(
 ### 3. Entity Implementation Template
 
 ```python
-"""[Entity description] for Integration Blueprint."""
+"""[Entity description] for Color Temperature Light Mixer."""
 
 from __future__ import annotations
 
@@ -78,12 +78,12 @@ from homeassistant.components.[platform] import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 
-from .coordinator import IntegrationBlueprintDataUpdateCoordinator
-from .entity import IntegrationBlueprintEntity
+from .coordinator import ColorTemperatureMixerDataUpdateCoordinator
+from .entity import ColorTemperatureMixerEntity
 
 
-class IntegrationBlueprint[EntityName](
-    IntegrationBlueprintEntity,
+class ColorTemperatureMixer[EntityName](
+    ColorTemperatureMixerEntity,
     [PlatformEntityClass],
 ):
     """Representation of [entity description]."""
@@ -100,7 +100,7 @@ class IntegrationBlueprint[EntityName](
 
     def __init__(
         self,
-        coordinator: IntegrationBlueprintDataUpdateCoordinator,
+        coordinator: ColorTemperatureMixerDataUpdateCoordinator,
         entry: ConfigEntry,
     ) -> None:
         """Initialize the [entity]."""
@@ -129,7 +129,7 @@ class IntegrationBlueprint[EntityName](
 
 ### 4. Update Manifest
 
-Add platform to `custom_components/ha_integration_domain/manifest.json`:
+Add platform to `custom_components/color_temperature_light_mixer/manifest.json`:
 
 ```json
 {
@@ -236,15 +236,15 @@ script/develop         # Start Home Assistant for testing
 ```python
 from homeassistant.helpers.device_registry import DeviceInfo
 
-class IntegrationBlueprint[EntityName](
-    IntegrationBlueprintEntity,
+class ColorTemperatureMixer[EntityName](
+    ColorTemperatureMixerEntity,
     [PlatformEntityClass],
 ):
     """Entity with device grouping."""
 
     def __init__(
         self,
-        coordinator: IntegrationBlueprintDataUpdateCoordinator,
+        coordinator: ColorTemperatureMixerDataUpdateCoordinator,
         entry: ConfigEntry,
     ) -> None:
         """Initialize entity."""
@@ -291,7 +291,7 @@ async def async_press(self) -> None:
 ## Validation Checklist
 
 - [ ] Platform directory created with `__init__.py`
-- [ ] Entity class inherits from both `IntegrationBlueprintEntity` and platform class
+- [ ] Entity class inherits from both `ColorTemperatureMixerEntity` and platform class
 - [ ] `_attr_has_entity_name = True` set (MANDATORY for new integrations)
 - [ ] Entity uses `translation_key` instead of hardcoded `name`
 - [ ] Unique ID set correctly
@@ -307,10 +307,10 @@ async def async_press(self) -> None:
 
 ## Integration Context
 
-- **Domain:** `ha_integration_domain`
-- **Class prefix:** `IntegrationBlueprint`
-- **Base entity:** `IntegrationBlueprintEntity` in `entity/base.py`
-- **Coordinator:** `IntegrationBlueprintDataUpdateCoordinator`
+- **Domain:** `color_temperature_light_mixer`
+- **Class prefix:** `ColorTemperatureMixer`
+- **Base entity:** `ColorTemperatureMixerEntity` in `entity/base.py`
+- **Coordinator:** `ColorTemperatureMixerDataUpdateCoordinator`
 
 Follow patterns from existing platforms in the integration for consistency.
 

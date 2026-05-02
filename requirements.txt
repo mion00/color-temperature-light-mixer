@@ -1,6 +1,6 @@
 # Runtime dependencies for the integration
 # These are installed by Home Assistant when the integration is loaded
-# See custom_components/ha_integration_domain/manifest.json for the authoritative list
+# See custom_components/color_temperature_light_mixer/manifest.json for the authoritative list
 
 # Add your integration's runtime dependencies here
 # Example:

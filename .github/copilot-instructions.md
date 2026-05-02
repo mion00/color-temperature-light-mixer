@@ -6,10 +6,10 @@
 
 ## Project Identity
 
-- **Domain:** `ha_integration_domain`
-- **Title:** Integration Blueprint
-- **Class prefix:** `IntegrationBlueprint`
-- **Main code:** `custom_components/ha_integration_domain/`
+- **Domain:** `color_temperature_light_mixer`
+- **Title:** Color Temperature Light Mixer
+- **Class prefix:** `ColorTemperatureMixer`
+- **Main code:** `custom_components/color_temperature_light_mixer/`
 - **Validate:** `script/check` (type-check + lint-check + spell-check)
 - **Start HA:** `./script/develop` (kills existing, starts on port 8123)
 - **Force restart:** `pkill -f "hass --config" || true && pkill -f "debugpy.*5678" || true && ./script/develop`
@@ -38,7 +38,7 @@ Generate code that passes these checks on first run. As an AI agent, you should 
 
 - `coordinator/` — DataUpdateCoordinator (base + data_processing + error_handling + listeners)
 - `api/` — External API client (async aiohttp)
-- `entity/` — Base entity class (`IntegrationBlueprintEntity`)
+- `entity/` — Base entity class (`ColorTemperatureMixerEntity`)
 - `entity_utils/` — Entity-specific helpers (device_info, state formatting)
 - `config_flow_handler/` — Config flow with `schemas/` and `validators/` subdirs
 - `[platform]/` — One directory per platform (sensor, switch, etc.), one class per file
@@ -49,7 +49,7 @@ Generate code that passes these checks on first run. As an AI agent, you should 
 
 **Key patterns** (details in path-specific `*.instructions.md`):
 
-- Entity MRO: `(PlatformEntity, IntegrationBlueprintEntity)` — order matters
+- Entity MRO: `(PlatformEntity, ColorTemperatureMixerEntity)` — order matters
 - Unique ID: `{entry_id}_{description.key}` (set in base entity)
 - Services: register in `async_setup()`, NOT `async_setup_entry()` (Quality Scale requirement)
 - Config entry data: `entry.runtime_data.client` / `entry.runtime_data.coordinator`
@@ -140,7 +140,7 @@ script/type-check   # Pyright — no auto-fix ever
 
 - Live: terminal where `./script/develop` runs
 - File: `config/home-assistant.log` (most recent), `config/home-assistant.log.1` (previous)
-- Debug level: `custom_components.ha_integration_domain: debug` in `config/configuration.yaml`
+- Debug level: `custom_components.color_temperature_light_mixer: debug` in `config/configuration.yaml`
 
 ## Working With the Developer
 

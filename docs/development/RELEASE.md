@@ -6,7 +6,7 @@ This document describes the release process for this integration, including auto
 
 Releases are managed with [release-please](https://github.com/googleapis/release-please), which automates version bumping and changelog generation based on [Conventional Commits](https://www.conventionalcommits.org/). An optional local script enhances release notes using GitHub Copilot CLI.
 
-**Version source of truth:** `custom_components/ha_integration_domain/manifest.json`
+**Version source of truth:** `custom_components/color_temperature_light_mixer/manifest.json`
 
 ## How It Works
 

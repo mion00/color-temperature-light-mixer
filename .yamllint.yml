@@ -1,5 +1,5 @@
 ---
-# yamllint configuration for ha_integration_domain
+# yamllint configuration for color_temperature_light_mixer
 # Documentation: https://yamllint.readthedocs.io/en/stable/rules.html
 
 extends: default

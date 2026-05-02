@@ -1,6 +1,6 @@
-# Getting Started with Integration Blueprint
+# Getting Started with Color Temperature Light Mixer
 
-This guide will help you install and set up the Integration Blueprint custom integration for Home Assistant.
+This guide will help you install and set up the Color Temperature Light Mixer custom integration for Home Assistant.
 
 ## Prerequisites
 
@@ -16,18 +16,18 @@ This guide will help you install and set up the Integration Blueprint custom int
 2. Go to "Integrations"
 3. Click the three dots in the top right corner
 4. Select "Custom repositories"
-5. Add this repository URL: `https://github.com/jpawlowski/hacs.integration_blueprint`
+5. Add this repository URL: `https://github.com/mion00/color-temperature-light-mixer`
 6. Set category to "Integration"
 7. Click "Add"
-8. Find "Integration Blueprint" in the integration list
+8. Find "Color Temperature Light Mixer" in the integration list
 9. Click "Download"
 10. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the latest release from the [releases page](https://github.com/jpawlowski/hacs.integration_blueprint/releases)
-2. Extract the `ha_integration_domain` folder from the archive
-3. Copy it to `custom_components/ha_integration_domain/` in your Home Assistant configuration directory
+1. Download the latest release from the [releases page](https://github.com/mion00/color-temperature-light-mixer/releases)
+2. Extract the `color_temperature_light_mixer` folder from the archive
+3. Copy it to `custom_components/color_temperature_light_mixer/` in your Home Assistant configuration directory
 4. Restart Home Assistant
 
 ## Initial Setup
@@ -36,7 +36,7 @@ After installation, add the integration:
 
 1. Go to **Settings** → **Devices & Services**
 2. Click **+ Add Integration**
-3. Search for "Integration Blueprint"
+3. Search for "Color Temperature Light Mixer"
 4. Follow the configuration steps:
 
 ### Step 1: Connection Information
@@ -99,13 +99,13 @@ Add entities to your dashboard:
 1. Go to your dashboard
 2. Click **Edit Dashboard** → **Add Card**
 3. Choose card type (e.g., "Entities", "Glance")
-4. Select entities from "Integration Blueprint"
+4. Select entities from "Color Temperature Light Mixer"
 
 Example entities card:
 
 ```yaml
 type: entities
-title: Integration Blueprint
+title: Color Temperature Light Mixer
 entities:
   - sensor.device_name_sensor
   - binary_sensor.device_name_connectivity
@@ -172,7 +172,7 @@ Enable debug logging to troubleshoot issues:
 logger:
   default: warning
   logs:
-    custom_components.ha_integration_domain: debug
+    custom_components.color_temperature_light_mixer: debug
 ```
 
 Add this to `configuration.yaml`, restart, and reproduce the issue. Check logs for detailed information.
@@ -181,11 +181,11 @@ Add this to `configuration.yaml`, restart, and reproduce the issue. Check logs f
 
 - See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options
 - See [EXAMPLES.md](./EXAMPLES.md) for more automation examples
-- Report issues at [GitHub Issues](https://github.com/jpawlowski/hacs.integration_blueprint/issues)
+- Report issues at [GitHub Issues](https://github.com/mion00/color-temperature-light-mixer/issues)
 
 ## Support
 
 For help and discussion:
 
-- [GitHub Discussions](https://github.com/jpawlowski/hacs.integration_blueprint/discussions)
+- [GitHub Discussions](https://github.com/mion00/color-temperature-light-mixer/discussions)
 - [Home Assistant Community Forum](https://community.home-assistant.io/)

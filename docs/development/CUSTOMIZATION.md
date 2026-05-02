@@ -8,7 +8,7 @@ Repositories created from this blueprint can receive upstream improvements autom
 
 ### How it works
 
-Every Monday at 07:00 UTC, the workflow checks whether the upstream blueprint (`jpawlowski/hacs.integration_blueprint`) has new commits. If it does, it opens a pull request with the diff against your repository.
+Every Monday at 07:00 UTC, the workflow checks whether the upstream blueprint (`mion00/color-temperature-light-mixer`) has new commits. If it does, it opens a pull request with the diff against your repository.
 
 You review the PR and merge anything you want to adopt. Changes you don't want can simply be dismissed or partially merged.
 
@@ -130,7 +130,7 @@ rm .github/workflows/template-sync.yml
 rm .templatesyncignore
 ```
 
-That's it. No workflow runs, no PRs, no noise. You can still pull upstream changes manually at any time by comparing your repository against `jpawlowski/hacs.integration_blueprint`.
+That's it. No workflow runs, no PRs, no noise. You can still pull upstream changes manually at any time by comparing your repository against `mion00/color-temperature-light-mixer`.
 
 ---
 

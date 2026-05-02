@@ -39,7 +39,7 @@ else
     HA_CORE_DIR=".local/ha-core"
 fi
 HA_CORE_REPO="https://github.com/home-assistant/core.git"
-INTEGRATION_PATH="custom_components/ha_integration_domain"
+INTEGRATION_PATH="custom_components/color_temperature_light_mixer"
 
 # Kill a stalled git fetch if it transfers < 1 KB/s for 30 s
 export GIT_HTTP_LOW_SPEED_LIMIT=1024

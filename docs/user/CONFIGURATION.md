@@ -1,6 +1,6 @@
 # Configuration Reference
 
-This document describes all configuration options and settings available in the Integration Blueprint custom integration.
+This document describes all configuration options and settings available in the Color Temperature Light Mixer custom integration.
 
 ## Integration Configuration
 
@@ -31,7 +31,7 @@ These options are configured during initial setup via the Home Assistant UI.
 After initial setup, you can modify settings:
 
 1. Go to **Settings** → **Devices & Services**
-2. Find "Integration Blueprint"
+2. Find "Color Temperature Light Mixer"
 3. Click **Configure**
 4. Modify settings
 5. Click **Submit**
@@ -87,7 +87,7 @@ Disabled entities won't update or consume resources.
 
 The integration provides the following services:
 
-### `ha_integration_domain.example_service`
+### `color_temperature_light_mixer.example_service`
 
 Execute an example service action on the device.
 
@@ -102,7 +102,7 @@ Execute an example service action on the device.
 **Example:**
 
 ```yaml
-service: ha_integration_domain.example_service
+service: color_temperature_light_mixer.example_service
 target:
   entity_id: switch.device_name_switch
 data:
@@ -119,7 +119,7 @@ automation:
       - trigger: sun
         event: sunset
     action:
-      - action: ha_integration_domain.example_service
+      - action: color_temperature_light_mixer.example_service
         target:
           entity_id: switch.device_name_switch
         data:
@@ -135,7 +135,7 @@ You can add multiple instances of this integration for different devices:
 
 1. Go to **Settings** → **Devices & Services**
 2. Click **+ Add Integration**
-3. Search for "Integration Blueprint"
+3. Search for "Color Temperature Light Mixer"
 4. Configure with different connection details
 
 Each instance creates separate entities with unique entity IDs.
@@ -168,7 +168,7 @@ Adjust based on your needs:
 The integration provides diagnostic data for troubleshooting:
 
 1. Go to **Settings** → **Devices & Services**
-2. Find "Integration Blueprint"
+2. Find "Color Temperature Light Mixer"
 3. Click on the device
 4. Click **Download Diagnostics**
 
@@ -190,7 +190,7 @@ The integration works with Home Assistant Blueprints for reusable automations:
 
 ```yaml
 blueprint:
-  name: Integration Blueprint Alert
+  name: Color Temperature Light Mixer Alert
   description: Send notification when sensor exceeds threshold
   domain: automation
   input:
@@ -199,7 +199,7 @@ blueprint:
       selector:
         entity:
           domain: sensor
-          integration: ha_integration_domain
+          integration: color_temperature_light_mixer
     threshold:
       name: Threshold
       selector:
@@ -246,4 +246,4 @@ If configuration changes aren't persisted:
 
 - [Getting Started](./GETTING_STARTED.md) - Installation and initial setup
 - [Examples](./EXAMPLES.md) - Automation and dashboard examples
-- [GitHub Issues](https://github.com/jpawlowski/hacs.integration_blueprint/issues) - Report problems
+- [GitHub Issues](https://github.com/mion00/color-temperature-light-mixer/issues) - Report problems

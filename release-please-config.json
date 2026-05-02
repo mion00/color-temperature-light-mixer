@@ -9,7 +9,7 @@
       "extra-files": [
         {
           "type": "json",
-          "path": "custom_components/ha_integration_domain/manifest.json",
+          "path": "custom_components/color_temperature_light_mixer/manifest.json",
           "jsonpath": "$.version"
         }
       ],

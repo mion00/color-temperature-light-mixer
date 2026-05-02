@@ -8,7 +8,7 @@ This custom integration uses multiple requirements files to separate different t
 
 **Purpose:** Python packages needed by the integration at runtime
 **Installed by:** Home Assistant when loading the integration
-**Also defined in:** `custom_components/ha_integration_domain/manifest.json`
+**Also defined in:** `custom_components/color_temperature_light_mixer/manifest.json`
 
 **Note:** This file is typically empty if this integration has no additional runtime dependencies beyond Home Assistant core.
 

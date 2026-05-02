@@ -158,4 +158,4 @@ logger:
     homeassistant.config_entries: info
 
     # Your integration debug logging - shows EVERYTHING from your integration
-    custom_components.ha_integration_domain: debug
+    custom_components.color_temperature_light_mixer: debug
