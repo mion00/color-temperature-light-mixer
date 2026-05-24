@@ -1,3 +1,9 @@
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo_dark.png?raw=true#gh-dark-mode-only" width="500"/>
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo.png?raw=true#gh-light-mode-only" width="500"/><br/>
+</p>
+
 # Color Temperature Light Mixer
 
 [![GitHub Release][releases-shield]][releases]
@@ -18,34 +24,31 @@ Uncomment and customize these badges if you want to use them:
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mion00/color-temperature-light-mixer?quickstart=1)
 
+Home Assistant integration to group multiple light sources into a single "virtual" color temperature-changing light.
+
+Useful for instance with LED strips having separate cold white/warm white channels (CCT or CWWW LED), in which two separate light entities are available in Home Assistant, one for each color temperature.
+This integration groups together the two lights, allowing them to be controlled as a single entity in HA.
+
+An example application is a "dumb"/analog LED strip controlled by a Shelly RGBW2 (configured in _4 white channels_ mode), where the cold light and warm light channels are each connected to a separate channel in the Shelly.
+
+<p align="center">
+    <img src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/cct_light_integration_demo.gif?raw=true"
+         alt="Animation representing how the virtual light created by this integration interacts with the warm and cold light sources that make it up"
+    />
+</p>
+
 ## ✨ Features
 
-- **Easy Setup**: Simple configuration through the UI - no YAML required
-- **Air Quality Monitoring**: Track AQI and PM2.5 levels in real-time
-- **Filter Management**: Monitor filter life and get replacement alerts
-- **Smart Control**: Adjust fan speed, target humidity, and operating modes
-- **Child Lock**: Safety feature to prevent accidental changes
-- **Diagnostic Info**: View filter life, runtime hours, and device statistics
-- **Reconfigurable**: Change credentials anytime without removing the integration
-- **Options Flow**: Adjust settings like update interval after setup
-- **Custom Services**: Advanced control with built-in service calls
+- Group two lights sources under a new, "virtual" light that combines their brightness output to achieve a varied range of color temperatures.
+- The "virtual" light reaches 100% brightness by turning on **both light sources** (check the _Know limitations_ section below for more information and potential issues you may encounter with your specific setup).
+- Intelligently handles unreachable settings for brightness and color temperatures based on the data passed to the `light.turn_on` service. See [this Python notebook](docs/development/color_temp_calculation.ipynb) for more details.
+- Can restore its own state after a reboot.
 
-**This integration will set up the following platforms.**
+**This integration will set up the following platforms:**
 
-| Platform        | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `sensor`        | Air quality index (AQI), PM2.5, filter life, and runtime |
-| `binary_sensor` | API connection status and filter replacement alert       |
-| `switch`        | Child lock and LED display controls                      |
-| `select`        | Fan speed selection (Low/Medium/High/Auto)               |
-| `number`        | Target humidity setting (30-80%)                         |
-| `button`        | Reset filter timer after replacement                     |
-| `fan`           | Air purifier fan control with speed settings             |
-
-> [!TIP]
-> **Interactive Demo:** The entities are interconnected for demonstration.
-> Press the **Reset Filter Timer** button to see **Filter Life Remaining** update to 100%.
-> Changing the **Air Purifier** fan speed syncs the **Fan Speed** select, and vice versa.
+| Platform | Description                                                                               |
+| -------- | ----------------------------------------------------------------------------------------- |
+| `light`  | The "virtual" color changing temperature light combining the warm and cold light entities |
 
 ## 🚀 Quick Start
 
@@ -88,11 +91,8 @@ Click the button below to open the configuration dialog:
 
 Follow the setup wizard:
 
-1. Enter your username
-2. Enter your password
-3. Click Submit
-
-That's it! The integration will start loading your data.
+1. Configure the light sources acting as warm white and cold light
+2. Click Submit
 
 #### Option 2: Manual Configuration
 
@@ -101,7 +101,7 @@ That's it! The integration will start loading your data.
 3. Search for "Color Temperature Light Mixer"
 4. Follow the same setup steps as Option 1
 
-### Step 3: Adjust Settings (Optional)
+<!-- ### Step 3: Adjust Settings (Optional)
 
 After setup, you can adjust options:
 
@@ -109,159 +109,48 @@ After setup, you can adjust options:
 2. Find **Color Temperature Light Mixer**
 3. Click **Configure** to adjust:
    - Update interval (how often to refresh data)
-   - Enable debug logging
+   - Enable debug logging -->
 
-You can also **Reconfigure** your credentials anytime without removing the integration.
+You can also **Reconfigure** the light sources anytime without removing the integration.
 
-### Step 4: Start Using!
+### Step 3: Start Using!
 
-The integration creates several entities for your air purifier:
+The integration creates a single entity:
 
-- **Sensors**: Air quality index, PM2.5 levels, filter life remaining, total runtime
-- **Binary Sensors**: API connection status, filter replacement alert
-- **Switches**: Child lock, LED display control
-- **Select**: Fan speed (Low/Medium/High/Auto)
-- **Number**: Target humidity (30-80%)
-- **Button**: Reset filter timer
-- **Fan**: Air purifier fan control
+- **Light group**: Light group representing a "virtual" light to control both warm and cold light sources at the same time
 
-Find all entities in **Settings** → **Devices & Services** → **Color Temperature Light Mixer** → click on the device.
+Find the entity in **Settings** → **Devices & Services** → **Color Temperature Light Mixer** → click on the device.
 
 ## Available Entities
 
-### Sensors
+### Lights
 
-- **Air Quality Index (AQI)**: Real-time air quality measurement (0-500 scale)
-  - Includes air quality category (Good/Moderate/Unhealthy/etc.)
-  - Health recommendations based on current AQI
-- **PM2.5**: Fine particulate matter concentration in µg/m³
-- **Filter Life Remaining** (Diagnostic): Shows remaining filter life as percentage
-- **Total Runtime** (Diagnostic): Total operating hours of the device
-
-### Binary Sensors
-
-- **API Connection**: Shows whether the connection to the API is active
-  - On: Connected and receiving data
-  - Off: Connection lost or authentication failed
-  - Shows update interval and API endpoint information
-- **Filter Replacement Needed**: Alerts when filter needs replacement
-  - Shows estimated days remaining
-  - Turns on when filter life is low
-
-### Switches
-
-- **Child Lock**: Prevents accidental button presses on the device
-  - Icon changes based on state (locked/unlocked)
-- **LED Display**: Enable/disable the LED display
-  - Disabled by default - enable in entity settings if needed
-
-### Select
-
-- **Fan Speed**: Choose from Low, Medium, High, or Auto
-  - Icon changes dynamically based on selected speed
-  - Auto mode adjusts speed based on air quality
-  - Syncs bidirectionally with the Air Purifier fan entity
-
-### Number
-
-- **Target Humidity**: Set desired humidity level (30-80%)
-  - Adjustable in 5% increments
-  - Displayed as a slider in the UI
-
-### Button
-
-- **Reset Filter Timer**: Reset the filter life to 100%
-  - Press to reset after replacing the filter
-  - Instantly updates the Filter Life Remaining sensor
-
-### Fan
-
-- **Air Purifier**: Control the air purifier fan speed and power
-  - Three speed levels: Low, Medium, High
-  - Syncs bidirectionally with the Fan Speed select entity
-  - Turn on/off functionality
-
-## Custom Services
-
-The integration provides services for advanced automation:
-
-### `color_temperature_light_mixer.example_action`
-
-Perform a custom action (customize this for your needs).
-
-**Example:**
-
-```yaml
-service: color_temperature_light_mixer.example_action
-data:
-  # Add your parameters here
-```
-
-### `color_temperature_light_mixer.reload_data`
-
-Manually refresh data from the API without waiting for the update interval.
-
-**Example:**
-
-```yaml
-service: color_temperature_light_mixer.reload_data
-```
-
-Use these services in automations or scripts for more control.
+- **Color temperature mixer light**: Light group representing a "virtual" light to combine warm and cold light sources
 
 ## Configuration Options
 
 ### During Setup
 
-| Name     | Required | Description           |
-| -------- | -------- | --------------------- |
-| Username | Yes      | Your account username |
-| Password | Yes      | Your account password |
+| Name                           | Required | Description                                                    |
+| ------------------------------ | -------- | -------------------------------------------------------------- |
+| Name                           | Yes      | The name of the "virtual" color changing temperature light     |
+| `warm_light_entity_id`         | Yes      | The `entity_id` representing the warm light (yellow-ish color) |
+| `warm_light_color_temp_kelvin` | Yes      | The color temperature of the warm light, in Kelvin             |
+| `cold_light_entity_id`         | Yes      | The `entity_id` representing the cold light (blu-ish color)    |
+| `cold_light_color_temp_kelvin` | Yes      | The color temperature of the cold light, in Kelvin             |
 
-### After Setup (Options)
+## Known limitations and issues
 
-You can change these anytime by clicking **Configure**:
+- This integration makes the assumption that 100% brightness is achieved when both warm white AND cold white LEDs are on.
+  Check the specifications of your lights to see if this type of setup is supported (compared instead to having only one of the strips at 100% power at a time).\
+  A future development might include the ability to cap the output brightness for setups where this is required.
+- At the moment the assumption is that each light source "contributes" equally to the resulting temperature. This was a design choice done to keep the math required in the computations simple. In some particular setups however this might not be the case.
 
-| Name             | Default | Description                |
-| ---------------- | ------- | -------------------------- |
-| Update Interval  | 1 hour  | How often to refresh data  |
-| Enable Debugging | Off     | Enable extra debug logging |
+- At the moment only two light sources are supported per "virtual" light.\
+  It is nonetheless possible to create multiple "virtual" lights, each with their own pair of light sources.
+- Support for light transitions has not been appropriately tested yet.
 
 ## Troubleshooting
-
-### Authentication Issues
-
-#### Reauthentication
-
-If your credentials expire or change, Home Assistant will automatically prompt you to reauthenticate:
-
-1. Go to **Settings** → **Devices & Services**
-2. Look for **"Action Required"** or **"Configuration Required"** message on the integration
-3. Click **"Reconfigure"** or follow the prompt
-4. Enter your updated credentials
-5. Click Submit
-
-The integration will automatically resume normal operation with the new credentials.
-
-#### Manual Credential Update
-
-You can also update credentials at any time without waiting for an error:
-
-1. Go to **Settings** → **Devices & Services**
-2. Find **Color Temperature Light Mixer**
-3. Click the **3 dots menu** → **Reconfigure**
-4. Enter new username/password
-5. Click Submit
-
-#### Connection Status
-
-Monitor your connection status with the **API Connection** binary sensor:
-
-- **On** (Connected): Integration is receiving data normally
-- **Off** (Disconnected): Connection lost or authentication failed
-  - Check the binary sensor attributes for diagnostic information
-  - Verify credentials if authentication failed
-  - Check network connectivity
 
 ### Enable Debug Logging
 
@@ -273,26 +162,6 @@ logger:
   logs:
     custom_components.color_temperature_light_mixer: debug
 ```
-
-### Common Issues
-
-#### Authentication Errors
-
-If you receive authentication errors:
-
-1. Verify your username and password are correct
-2. Check that your account has the necessary permissions
-3. Wait for the automatic reauthentication prompt, or manually reconfigure
-4. Check the API Connection binary sensor for status
-
-#### Device Not Responding
-
-If your device is not responding:
-
-1. Check the **API Connection** binary sensor - it should be "On"
-2. Check your network connection
-3. Verify the device is powered on
-4. Check the integration diagnostics (Settings → Devices & Services → Color Temperature Light Mixer → 3 dots → Download diagnostics)
 
 ## 🤝 Contributing
 

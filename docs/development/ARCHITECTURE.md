@@ -9,12 +9,6 @@ custom_components/color_temperature_light_mixer/
 ├── __init__.py              # Integration setup and unload
 ├── config_flow.py           # Config flow entry point
 ├── const.py                 # Constants and configuration keys
-├── coordinator/             # Data update coordinator package
-│   ├── __init__.py          # Exports ColorTemperatureMixerDataUpdateCoordinator
-│   ├── base.py              # Main coordinator class
-│   ├── data_processing.py   # Data validation and transformation
-│   ├── error_handling.py    # Error recovery and retry logic
-│   └── listeners.py         # Entity callbacks and event listeners
 ├── data.py                  # Data classes and type definitions
 ├── diagnostics.py           # Diagnostic data for troubleshooting
 ├── entity/                  # Base entity package
@@ -22,10 +16,6 @@ custom_components/color_temperature_light_mixer/
 │   └── base.py              # Base entity class implementation
 ├── manifest.json            # Integration metadata
 ├── repairs.py               # Repair flows for fixing issues
-├── services.yaml            # Service action definitions (legacy filename)
-├── api/                     # External API communication
-│   ├── __init__.py
-│   └── client.py            # API client implementation
 ├── config_flow_handler/     # Config flow implementation
 │   ├── __init__.py          # Package exports
 │   ├── handler.py           # Backward compatibility wrapper
@@ -36,17 +26,9 @@ custom_components/color_temperature_light_mixer/
 │   │   ├── __init__.py      # Schema exports
 │   │   ├── config.py        # Config flow schemas
 │   │   └── options.py       # Options flow schemas
-│   └── validators/          # Input validation
-│       ├── __init__.py      # Validator exports
-│       ├── credentials.py   # Credential validation
-│       └── sanitizers.py    # Input sanitizers
 ├── entity_utils/            # Entity helper utilities
 │   ├── __init__.py
 │   ├── device_info.py       # Device information helpers
-│   └── state_helpers.py     # State management utilities
-├── service_actions/         # Service action implementations
-│   ├── __init__.py
-│   └── example_service.py   # Example service action handler
 ├── translations/            # Localization files
 │   └── en.json              # English translations
 └── <platform>/              # Platform-specific implementations
@@ -55,53 +37,6 @@ custom_components/color_temperature_light_mixer/
 ```
 
 ## Core Components
-
-### Data Update Coordinator
-
-**Directory:** `coordinator/`
-
-The coordinator package manages periodic data fetching from the external API and distributes
-updates to all entities. It is organized as a package with separate modules for different concerns:
-
-**Package structure:**
-
-- `base.py` - Main coordinator class (`ColorTemperatureMixerDataUpdateCoordinator`)
-- `data_processing.py` - Data validation, transformation, and caching utilities
-- `error_handling.py` - Error recovery strategies, retry logic, and circuit breaker patterns
-- `listeners.py` - Entity callbacks, event listeners, and performance monitoring
-
-**Core functionality:**
-
-- Configurable update interval (default: 5 minutes)
-- Error handling with exponential backoff
-- Shared data access for all entities
-- Automatic retry on transient failures
-- Data validation and transformation before distribution
-- Performance monitoring and metrics
-
-**Key class:** `ColorTemperatureMixerDataUpdateCoordinator` (exported from `coordinator/__init__.py`)
-
-**Design rationale:**
-
-The coordinator is structured as a package rather than a single file to support future extensibility:
-
-- **Separation of concerns**: Core logic, error handling, and data processing are isolated
-- **Easy extension**: New features (caching, metrics, webhooks) can be added as new modules
-- **Maintainability**: Individual modules stay focused and manageable (<400 lines)
-- **Testability**: Each module can be tested independently
-
-### API Client
-
-**Directory:** `api/`
-
-Handles all communication with external APIs or devices. Implements:
-
-- Async HTTP requests using `aiohttp`
-- Connection management and timeouts
-- Authentication handling
-- Error translation to custom exceptions
-
-**Key class:** `ColorTemperatureMixerApiClient`
 
 ### Config Flow
 
@@ -115,15 +50,12 @@ is organized modularly to support complex flows without becoming monolithic.
 - `config_flow.py`: Main flow (user setup, reauth, reconfigure)
 - `options_flow.py`: Options flow for post-setup configuration
 - `schemas/`: Voluptuous schemas for all forms
-- `validators/`: Validation logic separated from flow logic
 - `subentry_flow.py`: Template for multi-device/location support
 
 **Supported flows:**
 
 - Initial user setup with validation
 - Options flow for reconfiguration
-- Reauthentication flow for expired credentials
-- Ready for subentry flows (multi-device support)
 
 **Key classes:**
 
@@ -138,7 +70,6 @@ Provides common functionality for all entities in the integration:
 
 - Device information
 - Unique ID generation
-- Coordinator integration
 - Availability tracking
 
 **Key class:** `ColorTemperatureMixerEntity` (in `entity/base.py`)
@@ -157,31 +88,6 @@ Platform entities inherit from both:
 
 1. Home Assistant platform base (e.g., `SensorEntity`)
 2. `ColorTemperatureMixerEntity` for common functionality
-
-## Data Flow
-
-```text
-┌─────────────────┐
-│  Config Entry   │ ← Created by config flow
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Coordinator   │ ← Fetches data from API every 5 min
-└────────┬────────┘
-         │
-         ▼
-    ┌────┴────┐
-    │  Data   │ ← Stored in coordinator.data
-    └────┬────┘
-         │
-    ┌────┴────────────────┐
-    │                     │
-    ▼                     ▼
-┌─────────┐         ┌─────────┐
-│ Sensor  │         │ Switch  │ ← Entities read from coordinator
-└─────────┘         └─────────┘
-```
 
 ## AI Agent Instructions
 
@@ -301,18 +207,6 @@ To add new functionality:
 3. Create entity classes inheriting from platform base + `ColorTemperatureMixerEntity`
 4. Add platform to `PLATFORMS` in `const.py`
 
-### Adding a New Service Action
-
-1. Create service action handler in `service_actions/<service_name>.py`
-2. Define service action in `services.yaml` (legacy filename) with schema
-3. Register service action in `__init__.py:async_setup()` (NOT `async_setup_entry`)
-
-### Modifying Data Structure
-
-1. Update coordinator data type in `coordinator.py`
-2. Adjust API client response parsing in `api/client.py`
-3. Update entity property implementations to match new structure
-
 ## Testing Strategy
 
 - **Unit tests:** Test individual functions and classes in isolation
@@ -325,7 +219,6 @@ Tests mirror the source structure under `tests/`.
 
 Core dependencies (see `manifest.json`):
 
-- `aiohttp` - Async HTTP client
 - Home Assistant 2025.7.0+ - Platform requirements
 
 Development dependencies (see `requirements_dev.txt`, `requirements_test.txt`).

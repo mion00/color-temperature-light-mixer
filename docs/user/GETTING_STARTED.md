@@ -37,26 +37,7 @@ After installation, add the integration:
 1. Go to **Settings** → **Devices & Services**
 2. Click **+ Add Integration**
 3. Search for "Color Temperature Light Mixer"
-4. Follow the configuration steps:
-
-### Step 1: Connection Information
-
-Enter the required connection details:
-
-- **Host/IP Address:** The hostname or IP address of your device/service
-- **API Key/Token:** Your authentication credentials (if applicable)
-- **Port:** Connection port (default: 8080)
-
-Click **Submit** to test the connection.
-
-### Step 2: Configuration Options
-
-Configure optional settings:
-
-- **Update Interval:** How often to poll for updates (default: 5 minutes)
-- **Name:** Friendly name for this integration instance
-
-Click **Submit** to complete setup.
+4. Follow the configuration steps
 
 ## What Gets Created
 
@@ -64,96 +45,17 @@ After successful setup, the integration creates:
 
 ### Devices
 
-- **Device Name:** Main device representing your connected service/hardware
-  - Model information
-  - Software version
-  - Configuration URL (link to device web interface)
+- **Device Name:** Main device representing your virtual light
 
 ### Entities
 
 The following entities are automatically created:
 
-#### Sensors
+#### Light
 
-- `sensor.<device_name>_<sensor_name>` - Descriptive sensor measurements
-- More sensors as applicable to your setup
-
-#### Binary Sensors
-
-- `binary_sensor.<device_name>_<sensor_name>` - On/off status indicators
-
-#### Switches
-
-- `switch.<device_name>_<switch_name>` - Controllable on/off switches
-
-#### Other Platforms
-
-Additional entities may be created depending on your device capabilities.
-
-## First Steps
-
-### Dashboard Cards
-
-Add entities to your dashboard:
-
-1. Go to your dashboard
-2. Click **Edit Dashboard** → **Add Card**
-3. Choose card type (e.g., "Entities", "Glance")
-4. Select entities from "Color Temperature Light Mixer"
-
-Example entities card:
-
-```yaml
-type: entities
-title: Color Temperature Light Mixer
-entities:
-  - sensor.device_name_sensor
-  - binary_sensor.device_name_connectivity
-  - switch.device_name_switch
-```
-
-### Automations
-
-Use the integration in automations:
-
-**Example - Trigger on sensor change:**
-
-```yaml
-automation:
-  - alias: "React to sensor value"
-    trigger:
-      - trigger: state
-        entity_id: sensor.device_name_sensor
-    action:
-      - action: notify.notify
-        data:
-          message: "Sensor changed to {{ trigger.to_state.state }}"
-```
-
-**Example - Control switch based on time:**
-
-```yaml
-automation:
-  - alias: "Turn on in morning"
-    trigger:
-      - trigger: time
-        at: "07:00:00"
-    action:
-      - action: switch.turn_on
-        target:
-          entity_id: switch.device_name_switch
-```
+- `light.<device_name>` - Light group used to command both warm and cold light sources
 
 ## Troubleshooting
-
-### Connection Failed
-
-If setup fails with connection errors:
-
-1. Verify the host/IP address is correct and reachable
-2. Check that the API key/token is valid
-3. Ensure no firewall is blocking the connection
-4. Check Home Assistant logs for detailed error messages
 
 ### Entities Not Updating
 
@@ -179,8 +81,6 @@ Add this to `configuration.yaml`, restart, and reproduce the issue. Check logs f
 
 ## Next Steps
 
-- See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options
-- See [EXAMPLES.md](./EXAMPLES.md) for more automation examples
 - Report issues at [GitHub Issues](https://github.com/mion00/color-temperature-light-mixer/issues)
 
 ## Support
