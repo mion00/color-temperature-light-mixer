@@ -1,0 +1,10 @@
+input_number:
+  warm_white_brightness:
+    min: 1
+    max: 255
+    step: 1
+
+  cold_white_brightness:
+    min: 1
+    max: 255
+    step: 1

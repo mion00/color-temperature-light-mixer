@@ -17,12 +17,6 @@ from typing import Any
 
 import voluptuous as vol
 
-from custom_components.color_temperature_light_mixer.const import (
-    DEFAULT_ENABLE_DEBUGGING,
-    DEFAULT_UPDATE_INTERVAL_HOURS,
-)
-from homeassistant.helpers import selector
-
 
 def get_options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
     """
@@ -36,30 +30,7 @@ def get_options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
 
     """
     defaults = defaults or {}
-    return vol.Schema(
-        {
-            vol.Optional(
-                "update_interval_hours",
-                default=defaults.get("update_interval_hours", DEFAULT_UPDATE_INTERVAL_HOURS),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0.25,
-                    max=24,
-                    step=0.25,
-                    unit_of_measurement="h",
-                    mode=selector.NumberSelectorMode.BOX,
-                ),
-            ),
-            vol.Optional(
-                "enable_debugging",
-                default=defaults.get("enable_debugging", DEFAULT_ENABLE_DEBUGGING),
-            ): selector.BooleanSelector(),
-            vol.Optional(
-                "custom_icon",
-                default=defaults.get("custom_icon"),
-            ): selector.IconSelector(),
-        },
-    )
+    return vol.Schema({})
 
 
 __all__ = [

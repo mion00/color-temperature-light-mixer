@@ -8,7 +8,6 @@ from their respective modules. The actual implementation is split across:
 - options_flow.py: Options flow for post-setup configuration
 - subentry_flow.py: Template for future subentry flows
 - schemas/: Voluptuous schemas for all forms
-- validators/: Validation logic for user inputs
 
 This structure keeps the code organized while allowing complex flows to grow
 without becoming monolithic.

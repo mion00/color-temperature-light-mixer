@@ -1,13 +1,14 @@
 {
   "domain": "color_temperature_light_mixer",
   "name": "Color Temperature Light Mixer",
+  "after_dependencies": ["light", "sensor"],
   "codeowners": [
     "@mion00"
   ],
   "config_flow": true,
   "documentation": "https://github.com/mion00/color-temperature-light-mixer",
-  "integration_type": "hub",
-  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "iot_class": "calculated",
   "issue_tracker": "https://github.com/mion00/color-temperature-light-mixer/issues",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

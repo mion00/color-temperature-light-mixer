@@ -1,0 +1,105 @@
+ # Templated lights based on manually adjusted input_numbers
+
+template:
+- light:
+  - default_entity_id: light.warm_white
+    name: Warm
+    level: '{{ states("input_number.warm_white_brightness") | int }}'
+    temperature: '{{ 333 }}'
+    state: '{{ states("input_boolean.warm_white_on") }}'
+    set_temperature:
+      - action: input_number.set_value
+        data:
+          value: '{{ brightness }}'
+        target:
+          entity_id:
+          - input_number.warm_white_brightness
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+          - input_boolean.warm_white_on
+    set_level:
+      - action: input_number.set_value
+        data:
+          value: '{{ brightness }}'
+        target:
+          entity_id:
+          - input_number.warm_white_brightness
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+          - input_boolean.warm_white_on
+    turn_on:
+    - if:
+      - condition: template
+        value_template: '{{ brightness is defined | default(False) }}'
+      then:
+      - action: input_number.set_value
+        data:
+          value: '{{ brightness }}'
+        target:
+          entity_id:
+          - input_number.warm_white_brightness
+    - action: input_boolean.turn_on
+      target:
+        entity_id:
+        - input_boolean.warm_white_on
+
+    turn_off:
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.warm_white_on
+
+
+- light:
+  - default_entity_id: light.cold_white
+    name: Cold
+    level: '{{ states("input_number.cold_white_brightness") | int }}'
+    temperature: '{{ 166 }}'
+    state: '{{ states("input_boolean.cold_white_on") }}'
+    set_temperature:
+      - action: input_number.set_value
+        data:
+          value: '{{ brightness }}'
+        target:
+          entity_id:
+            - input_number.cold_white_brightness
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+            - input_boolean.cold_white_on
+            - input_boolean.cold_white_on
+    set_level:
+      - action: input_number.set_value
+        data:
+          value: '{{ brightness }}'
+        target:
+          entity_id:
+            - input_number.cold_white_brightness
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+            - input_boolean.cold_white_on
+            - input_boolean.cold_white_on
+    turn_on:
+      - if:
+        - condition: template
+          value_template: '{{ brightness is defined | default(False) }}'
+        then:
+          - action: input_number.set_value
+            data:
+              value: '{{ brightness }}'
+            target:
+              entity_id:
+                - input_number.cold_white_brightness
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+            - input_boolean.cold_white_on
+
+    turn_off:
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.cold_white_on

@@ -1,6 +1,7 @@
 # Home Assistant configuration and runtime (development/testing)
 config/*
 !config/configuration.yaml
+!config/packages
 
 # Custom components (HACS-installed dependencies and dev symlinks)
 custom_components/*

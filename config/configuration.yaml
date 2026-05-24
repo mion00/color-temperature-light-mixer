@@ -9,6 +9,8 @@
 homeassistant:
   debug: true
 
+  packages: !include_dir_named packages
+
 # Debugging integration
 # https://www.home-assistant.io/integrations/debugpy/
 debugpy:
@@ -134,6 +136,7 @@ logger:
     homeassistant.components.sensor: warning
     homeassistant.components.event: warning
     homeassistant.components.switch: warning
+    homeassistant.components.lights: debug
 
     # HTTP/network
     homeassistant.components.http: warning
