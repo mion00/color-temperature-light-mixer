@@ -6,6 +6,8 @@ import asyncio
 from collections.abc import Awaitable
 from typing import Any
 
+from graphql import UndefinedType
+
 from custom_components.color_temperature_light_mixer.const import (
     CONF_COLD_LIGHT,
     CONF_COLD_LIGHT_TEMPERATURE_KELVIN,
@@ -89,7 +91,7 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
             and state.state is not None
             and (previous := await self.async_get_last_stored_data())
         ):
-            LOGGER.debug("%s: restoring state data: %s", self.name, previous)
+            LOGGER.debug("%s: restoring state data: %s", self._friendly_name(), previous)
             self.__last_turned_on_brightness = previous.brightness
             self.__last_turned_on_temperature = previous.color_temperature
 
@@ -98,7 +100,7 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Given a combination of brightness or color_temp_kelvin, compute the required brightnesses for all the lights in the group."""
-        LOGGER.debug("%s: turn on with params: %s", self.name, kwargs)
+        LOGGER.debug("%s: turn on with params: %s", self._friendly_name(), kwargs)
 
         # Extract information about the target temperature and brightness passed as kwargs, if available.
         # Otherwise try to maintain the currently set temperature and brightness, restoring them from the dedicated sensor if unavailable locally
@@ -124,10 +126,10 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         # Try to read the missing value from our restored state, if available
         if target_brightness is None:  # and priority is not BrightnessTemperaturePriority.MIXED:
             target_brightness = self.__last_turned_on_brightness
-            LOGGER.debug("%s: using last turned on brightness: %s", self.name, target_brightness)
+            LOGGER.debug("%s: using last turned on brightness: %s", self._friendly_name(), target_brightness)
         if target_temp_kelvin is None:  # and priority is not BrightnessTemperaturePriority.MIXED:
             target_temp_kelvin = self.__last_turned_on_temperature
-            LOGGER.debug("%s: using last turned on temperature: %s", self.name, target_temp_kelvin)
+            LOGGER.debug("%s: using last turned on temperature: %s", self._friendly_name(), target_temp_kelvin)
 
         # Populate the base service data common to all the lights
         common_data = {key: value for key, value in kwargs.items() if key in FORWARDED_ATTRIBUTES}
@@ -137,7 +139,7 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         if target_brightness is None or target_temp_kelvin is None:
             LOGGER.debug(
                 "%s: cannot compute target state given target brightness: %d and temp: %d, turning on all lights without altering brightness",
-                self.name,
+                self._friendly_name(),
                 target_brightness,
                 target_temp_kelvin,
             )
@@ -176,7 +178,7 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
             if light.brightness is not None:
                 service_data[ATTR_BRIGHTNESS] = light.brightness
 
-            LOGGER.debug("%s: forwarding service turn_on call to: %s %s", self.name, target, service_data)
+            LOGGER.debug("%s: forwarding service turn_on call to: %s %s", self._friendly_name(), target, service_data)
             service_calls.append(
                 self.hass.services.async_call(
                     DOMAIN_LIGHT,
@@ -238,7 +240,7 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         # Save the current turned on state
         self._save_turned_on_state()
 
-        LOGGER.debug("%s: invoking turn_off for the light group", self.name)
+        LOGGER.debug("%s: invoking turn_off for the light group", self._friendly_name())
         await super().async_turn_off(**kwargs)
 
     def _save_turned_on_state(self):
@@ -250,7 +252,10 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
 
         # Store the state as a serialized JSON string
         LOGGER.debug(
-            "%s: saving turned on state: bright: %d, temp: %d", self.name, self.brightness, self.color_temp_kelvin
+            "%s: saving turned on state: bright: %d, temp: %d",
+            self._friendly_name(),
+            self.brightness,
+            self.color_temp_kelvin,
         )
 
         self.__last_turned_on_brightness = self.brightness
@@ -269,3 +274,16 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
             self.__last_turned_on_brightness,
             self.__last_turned_on_temperature,
         )
+
+    def _friendly_name(self) -> str:
+        """Return the best available name to use in the log output."""
+
+        return (
+            self._cached_friendly_name[1]
+            if self._cached_friendly_name and self._cached_friendly_name[1]
+            else (
+                self.name
+                if self.name and type(self.name) is not UndefinedType
+                else (self.entity_id or self.unique_id if self.unique_id else "unknown")
+            )
+        )  # pyright: ignore[reportReturnType] pyright does not correctly handles `type(self.name) is not UndefinedType`
