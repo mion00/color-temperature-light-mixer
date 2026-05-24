@@ -20,10 +20,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from homeassistant.const import Platform
-import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 
-from .const import DOMAIN
+from custom_components.color_temperature_light_mixer.config_flow_handler.schemas.config import get_user_schema
+from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.const import CONF_SOURCE, Platform
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+
+from .const import DOMAIN, LOGGER
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -35,7 +40,47 @@ PLATFORMS: list[Platform] = [
 ]
 
 # This integration is configured via config entries only
-CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+# CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+# Allow import via YAML
+CONFIG_SCHEMA = vol.Schema(
+    {
+        DOMAIN: vol.All(cv.ensure_list, [get_user_schema()]),
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+
+async def async_setup(
+    hass: HomeAssistant,
+    config: ConfigType,
+) -> bool:
+    """
+    Set up this integration via YAML.
+
+    Called when the integration is first set up.
+    It forwards the YAML configuration to the config flow to create/update the corresponding config entries.
+
+    Args:
+        hass: The Home Assistant instance.
+        config: The YAML configuration parsed by Home Assistant.
+
+    Returns:
+        True if setup was successful.
+    """
+
+    LOGGER.info("Setting up %s integration", DOMAIN)
+
+    for entry in config.get(DOMAIN, []):
+        LOGGER.debug("Forwarding setup to config entries")
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={CONF_SOURCE: SOURCE_IMPORT},
+                data=entry,
+            )
+        )
+
+    return True
 
 
 async def async_setup_entry(

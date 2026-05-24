@@ -18,7 +18,7 @@ from custom_components.color_temperature_light_mixer.config_flow_handler.schemas
     get_reconfigure_schema,
     get_user_schema,
 )
-from custom_components.color_temperature_light_mixer.const import DOMAIN
+from custom_components.color_temperature_light_mixer.const import DOMAIN, LOGGER
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.loader import async_get_loaded_integration
@@ -126,6 +126,28 @@ class ColorTemperatureMixerConfigFlowHandler(config_entries.ConfigFlow, domain=D
             step_id="reconfigure",
             data_schema=get_reconfigure_schema(entry.data),
             errors=errors,
+        )
+
+    async def async_step_import(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle configuration by YAML file."""
+
+        if user_input is None:
+            return self.async_abort(reason="no_data")
+
+        await self.async_set_unique_id(user_input[CONF_NAME])
+
+        for entry in self._async_current_entries():
+            if entry.unique_id == self.unique_id:
+                LOGGER.debug("Updating existing config entry")
+                self._abort_if_unique_id_configured(updates=user_input)
+
+        LOGGER.debug("Creating new config entry titled %s", user_input[CONF_NAME])
+        return self.async_create_entry(
+            title=user_input[CONF_NAME],
+            data=user_input,
         )
 
 

@@ -1,0 +1,6 @@
+color_temperature_light_mixer:
+  - name: test
+    warm_light_entity_id: light.warm_white
+    warm_light_color_temp_kelvin: 3000
+    cold_light_entity_id: light.cold_white
+    cold_light_color_temp_kelvin: 6000
