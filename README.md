@@ -249,12 +249,11 @@ You'll need these installed locally:
 
 ---
 
-## 🤖 AI-Assisted Development
+## Credits
 
-> [!NOTE]
-> **Transparency Notice:** This integration was developed with assistance from AI coding agents (GitHub Copilot, Claude, and others). While the codebase follows Home Assistant Core standards, AI-generated code may not be reviewed or tested to the same extent as manually written code. AI tools were used to generate boilerplate code, implement standard integration features (config flow, coordinator, entities), ensure code quality and type safety, and write documentation. If you encounter unexpected behavior, please [open an issue](../../issues) on GitHub.
->
-> _This section can be removed or modified if AI assistance was not used in your integration's development._
+The original inspiration came from the template light provided by [gfrancesco](https://github.com/gfrancesco/cwww-template-light-ha), as part of this [HA forum thread](https://community.home-assistant.io/t/create-a-temperature-changing-light-from-2-lights-and-shelly-rgbw2-solved/266408/15).
+
+This Home Assistant custom component was created and is updated using the [Home Assistant Integration Blueprint](https://github.com/jpawlowski/hacs.integration_blueprint). You can use this template to maintain your own Home Assistant custom components.
 
 ---
 
