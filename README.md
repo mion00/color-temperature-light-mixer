@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD033 -->
 <p align="center">
-    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo_dark.png?raw=true#gh-dark-mode-only" width="500"/>
-    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/docs/logo.png?raw=true#gh-light-mode-only" width="500"/><br/>
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/custom_components/color_temperature_light_mixer/brand/dark_logo.png?raw=true#gh-dark-mode-only" width="500"/>
+    <img alt="logo" src="https://github.com/mion00/color-temperature-light-mixer/blob/main/custom_components/color_temperature_light_mixer/brand/logo.png?raw=true#gh-light-mode-only" width="500"/><br/>
 </p>
 
 # Color Temperature Light Mixer
