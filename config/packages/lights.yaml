@@ -7,6 +7,7 @@ template:
     level: '{{ states("input_number.warm_white_brightness") | int }}'
     temperature: '{{ 333 }}'
     state: '{{ states("input_boolean.warm_white_on") }}'
+    supports_transition: '{{ true }}'
     set_temperature:
       - action: input_number.set_value
         data:
@@ -58,6 +59,7 @@ template:
     level: '{{ states("input_number.cold_white_brightness") | int }}'
     temperature: '{{ 166 }}'
     state: '{{ states("input_boolean.cold_white_on") }}'
+    supports_transition: '{{ true }}'
     set_temperature:
       - action: input_number.set_value
         data:
