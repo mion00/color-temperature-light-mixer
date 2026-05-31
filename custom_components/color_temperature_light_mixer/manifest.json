@@ -1,7 +1,10 @@
 {
   "domain": "color_temperature_light_mixer",
   "name": "Color Temperature Light Mixer",
-  "after_dependencies": ["light", "sensor"],
+  "after_dependencies": [
+    "light",
+    "sensor"
+  ],
   "codeowners": [
     "@mion00"
   ],
