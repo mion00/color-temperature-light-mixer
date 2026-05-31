@@ -18,7 +18,7 @@ jobs:
   release-please:
     name: Release Please
     # Skip when running inside the template repository itself
-    if: github.repository != 'mion00/color-temperature-light-mixer'
+    if: github.repository != 'jpawlowski/hacs.integration_blueprint'
     runs-on: ubuntu-latest
     steps:
       - name: Run release-please
