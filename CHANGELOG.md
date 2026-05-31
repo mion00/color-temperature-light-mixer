@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/mion00/color-temperature-light-mixer/compare/0.1.2...v0.2.0) (2026-05-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* Changed `unique_id` properties for created entities. Upon update of this integration, each configured instance of this integration will result in the previous "virtual" light group entity being marked as not available, and a newly created "virtual" light group entity with `_2` prepended to its entity ID. To fix this:
+    - Go in the device page of each of your configured virtual CCT lights
+    - manually remove the unavailable entity
+    - click on the upper right menu in this page and use "Recreate Entity IDs" to correctly rename the entity with `_2` in its name
+
+### Bug Fixes
+
+* **ColorTemperatureMixerLight:** use helper method to output the best available entity name in logs ([a43db40](https://github.com/mion00/color-temperature-light-mixer/commit/a43db40d9f2c808645476ce069ee66a516a45789))
+
+
+### Code Refactoring
+
+* update the integration codebase following the updated blueprint structure ([04f62fc](https://github.com/mion00/color-temperature-light-mixer/commit/04f62fc9f4ac6fc69a35d8f7157a1edb03b7e727))
+
 ## 0.1.2 (2024-05-29)
 
 ## 0.1.1 (2024-05-29)
