@@ -6,3 +6,6 @@ custom_components/
 
 # Ignore-style files (no recognized extension — Prettier would misparse them)
 *ignore
+
+# Automatically generated CHANGELOG from release-please
+CHANGELOG.md

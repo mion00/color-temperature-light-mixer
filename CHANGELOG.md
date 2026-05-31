@@ -55,5 +55,3 @@
 ### Refactor
 
 - **manifest.json**: capitalize name of integration
-
-<!-- markdownlint-disable-file MD024 -->
