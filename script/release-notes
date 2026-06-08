@@ -35,7 +35,7 @@ COPILOT_MODEL="${COPILOT_MODEL:-claude-sonnet-4.6}"
 DIFF_MAX_BYTES="${RELEASE_NOTES_DIFF_MAX:-8000}"
 
 # Integration domain — used for path filtering
-DOMAIN="color_temperature_light_mixer"
+DOMAIN="ha_integration_domain"
 COMPONENT_DIR="custom_components/$DOMAIN"
 
 # User-facing paths (changes here are most relevant for release notes)
@@ -256,7 +256,7 @@ Write: "You can now...", "Your automations will...", "The setup wizard now..."
   ✅ "Fixed: Sensor data could show incorrect values when switching to/from daylight saving time"
 
 **Rule 4 — New features: lead with what the user can DO.**
-  ❌ "Add ColorTemperatureMixerFanSpeedSensor with EntityDescription"
+  ❌ "Add IntegrationBlueprintFanSpeedSensor with EntityDescription"
   ✅ "New sensor shows your device's current fan speed on your dashboard"
 
 **Rule 5 — Refactoring without user impact: omit completely.**
@@ -320,7 +320,7 @@ PROMPT_HEADER
 
 ## Context
 
-This is a Home Assistant custom integration called 'Color Temperature Light Mixer'.
+This is a Home Assistant custom integration called 'Integration Blueprint'.
 Domain: $DOMAIN
 Current version: $CURRENT_VERSION
 

@@ -94,8 +94,8 @@ Create a new ADR in `docs/development/adr/NNNN-title-of-decision.md`:
 
 **Files affected:**
 
-- `custom_components/color_temperature_light_mixer/[file1.py]`
-- `custom_components/color_temperature_light_mixer/[file2.py]`
+- `custom_components/ha_integration_domain/[file1.py]`
+- `custom_components/ha_integration_domain/[file2.py]`
 
 **Code pattern to follow:**
 
@@ -222,8 +222,8 @@ Create a new ADR in `docs/development/adr/NNNN-title-of-decision.md`:
 
 ## Integration Context
 
-- **Domain:** `color_temperature_light_mixer`
-- **Class prefix:** `ColorTemperatureMixer`
+- **Domain:** `ha_integration_domain`
+- **Class prefix:** `IntegrationBlueprint`
 - **Architecture docs:** `docs/development/ARCHITECTURE.md`
 - **Decisions log:** `docs/development/DECISIONS.md`
 

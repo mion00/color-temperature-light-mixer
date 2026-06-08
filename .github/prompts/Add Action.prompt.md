@@ -26,7 +26,7 @@ If not provided, ask for:
 
 ### 1. Define Service Action in `services.yaml`
 
-**File:** `custom_components/color_temperature_light_mixer/services.yaml`
+**File:** `custom_components/ha_integration_domain/services.yaml`
 
 **Note:** `services.yaml` is a legacy filename from when these were called "services". We now call them "service actions" in code and "actions" for users.
 
@@ -44,7 +44,7 @@ Add service action definition:
     entity:
       domain: [platform] # sensor, switch, etc.
       # OR
-      integration: color_temperature_light_mixer
+      integration: ha_integration_domain
 
   # Service action parameters - organize with sections for better UX
   fields:
@@ -86,7 +86,7 @@ Add service action definition:
 
   target:
     entity:
-      integration: color_temperature_light_mixer
+      integration: ha_integration_domain
 
   fields:
     # Basic section - always visible
@@ -163,10 +163,10 @@ This allows translating the option labels via `selector.[translation_key].option
 
 **Option A: Simple service action in `service_actions/` directory**
 
-Create `custom_components/color_temperature_light_mixer/service_actions/[action_name].py`:
+Create `custom_components/ha_integration_domain/service_actions/[action_name].py`:
 
 ```python
-"""[Action name] service action for Color Temperature Light Mixer."""
+"""[Action name] service action for Integration Blueprint."""
 
 from __future__ import annotations
 
@@ -266,7 +266,7 @@ async def async_setup_service_action(hass: HomeAssistant) -> None:
 
 ### 3. Register Service Action in `__init__.py`
 
-**File:** `custom_components/color_temperature_light_mixer/__init__.py`
+**File:** `custom_components/ha_integration_domain/__init__.py`
 
 **CRITICAL:** Service actions must register in `async_setup` or `setup`, NOT in `async_setup_entry`!
 
@@ -320,7 +320,7 @@ async def async_setup_entry(...) -> None:
 
 ### 4. Add Service Action Constants
 
-**File:** `custom_components/color_temperature_light_mixer/const.py`
+**File:** `custom_components/ha_integration_domain/const.py`
 
 ```python
 # Service action names (use SERVICE_ prefix for legacy compatibility)
@@ -622,7 +622,7 @@ async def async_handle_service_action(call: ServiceCall) -> None:
 
 1. Start Home Assistant: `script/develop`
 2. Go to Developer Tools > Actions tab (user-facing: "Actions", not "Services")
-3. Find service action: `color_temperature_light_mixer.[action_name]`
+3. Find service action: `ha_integration_domain.[action_name]`
 4. Test with valid parameters
 5. Test with invalid parameters (should show validation errors)
 6. Test with edge cases
@@ -638,11 +638,11 @@ async def async_handle_service_action(call: ServiceCall) -> None:
 
 ## Integration Context
 
-- **Domain:** `color_temperature_light_mixer`
-- **Service actions directory:** `custom_components/color_temperature_light_mixer/service_actions/` (preferred) or `actions/`
-- **Service actions definition:** `custom_components/color_temperature_light_mixer/services.yaml` (legacy filename)
-- **Icons:** `custom_components/color_temperature_light_mixer/icons.json` under `services` key (legacy)
-- **Translations:** `custom_components/color_temperature_light_mixer/translations/*.json` under `services` key (legacy)
+- **Domain:** `ha_integration_domain`
+- **Service actions directory:** `custom_components/ha_integration_domain/service_actions/` (preferred) or `actions/`
+- **Service actions definition:** `custom_components/ha_integration_domain/services.yaml` (legacy filename)
+- **Icons:** `custom_components/ha_integration_domain/icons.json` under `services` key (legacy)
+- **Translations:** `custom_components/ha_integration_domain/translations/*.json` under `services` key (legacy)
 
 Follow patterns from existing service actions in the integration.
 

@@ -2,10 +2,7 @@
 config/
 !config/configuration.yaml
 custom_components/
-!custom_components/color_temperature_light_mixer/
+!custom_components/ha_integration_domain/
 
 # Ignore-style files (no recognized extension — Prettier would misparse them)
 *ignore
-
-# Automatically generated CHANGELOG from release-please
-CHANGELOG.md

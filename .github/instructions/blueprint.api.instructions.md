@@ -59,9 +59,9 @@ applyTo: "custom_components/**/api/**/*.py, custom_components/**/coordinator/**/
 
 Define in `api/__init__.py`:
 
-- `ColorTemperatureMixerApiClientError` (Base)
-- `ColorTemperatureMixerApiClientCommunicationError` (Network, timeout, HTTP errors)
-- `ColorTemperatureMixerApiClientAuthenticationError` (401, 403, invalid credentials)
+- `IntegrationBlueprintApiClientError` (Base)
+- `IntegrationBlueprintApiClientCommunicationError` (Network, timeout, HTTP errors)
+- `IntegrationBlueprintApiClientAuthenticationError` (401, 403, invalid credentials)
 - Optional: `ApiClientRateLimitError(retry_after)` for rate limiting
 
 **Mapping:** HTTP 401/403 → Auth, HTTP 429 → RateLimit, Timeout/ClientError → Communication

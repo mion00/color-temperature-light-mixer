@@ -21,7 +21,7 @@ cd "$SCRIPT_DIR/.."
 # shellcheck source=script/.lib/output.sh
 source "$SCRIPT_DIR/.lib/output.sh"
 
-MANIFEST="custom_components/color_temperature_light_mixer/manifest.json"
+MANIFEST="custom_components/ha_integration_domain/manifest.json"
 RP_MANIFEST=".release-please-manifest.json"
 
 require_command jq "apt-get install jq"
