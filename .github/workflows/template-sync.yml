@@ -82,3 +82,4 @@ jobs:
           git_user_name: "Carlo Mion"
           git_user_email: "4510647+mion00@users.noreply.github.com"
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
