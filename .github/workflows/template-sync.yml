@@ -16,9 +16,12 @@ name: Sync from Blueprint Template
 
 on:
   schedule:
-    # Every Monday at 07:00 UTC
-    - cron: "0 7 * * 1"
+    # Every Saturday at 07:00 UTC
+    - cron: "0 7 * * 6"
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/template-sync.yml
 
 jobs:
   template-sync:
@@ -30,6 +33,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      repository-projects: read # required by is_force_push_pr (gh pr edit)
 
     steps:
       - name: Checkout
@@ -72,4 +76,9 @@ jobs:
           pr_labels: template-sync
           pr_title: "chore: sync updates from integration blueprint template"
           pr_commit_msg: "chore(template): sync blueprint updates :up:"
-          is_pr_cleanup: true
+          # Reuse/update existing template-sync PRs instead of closing and recreating them.
+          is_force_push_pr: true
+          is_pr_cleanup: false
+          git_user_name: "Carlo Mion"
+          git_user_email: "4510647+mion00@users.noreply.github.com"
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
