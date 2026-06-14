@@ -129,9 +129,9 @@ Break down into logical phases (typically 3-5):
 
 **Integration-specific considerations:**
 
-- Domain: `color_temperature_light_mixer`
-- Title: Color Temperature Light Mixer
-- Class prefix: `ColorTemperatureMixer`
+- Domain: `{domain}`
+- Title: (your integration title)
+- Class prefix: `{ClassPrefix}`
 - Follow patterns in `AGENTS.md` and path-specific `.instructions.md`
 
 ## Example Phase Structure
@@ -141,8 +141,8 @@ Break down into logical phases (typically 3-5):
 
 **Files to modify:**
 
-- `custom_components/color_temperature_light_mixer/sensor/__init__.py`
-- `custom_components/color_temperature_light_mixer/sensor/new_sensor.py` (create)
+- `custom_components/{domain}/sensor/__init__.py`
+- `custom_components/{domain}/sensor/new_sensor.py` (create)
 
 **Changes:**
 

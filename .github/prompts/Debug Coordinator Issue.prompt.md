@@ -49,7 +49,7 @@ Your goal is to diagnose and fix issues with the data update coordinator.
      ```yaml
      logger:
        logs:
-         custom_components.color_temperature_light_mixer: debug
+         custom_components.{domain}: debug
      ```
 
    - Restart Home Assistant: `./script/develop`
@@ -117,9 +117,9 @@ super().__init__(
 
 ## Related Files to Review
 
-- [#file:custom_components/color_temperature_light_mixer/coordinator/base.py]
-- [#file:custom_components/color_temperature_light_mixer/api/client.py]
-- [#file:custom_components/color_temperature_light_mixer/entity/base.py]
+- [#file:custom_components/{domain}/coordinator/base.py]
+- [#file:custom_components/{domain}/api/client.py]
+- [#file:custom_components/{domain}/entity/base.py]
 - [#file:config/configuration.yaml] - for log levels
 - [#file:config/home-assistant.log] - for error traces
 

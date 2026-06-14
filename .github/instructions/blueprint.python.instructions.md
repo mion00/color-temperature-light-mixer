@@ -43,7 +43,7 @@ sensor/
 **Naming:**
 
 - Files: `snake_case.py`
-- Classes: `PascalCase` prefixed with `ColorTemperatureMixer`
+- Classes: `PascalCase` prefixed with the integration's class prefix (defined in project identity)
 - Functions/methods: `snake_case`
 - Constants: `UPPER_SNAKE_CASE`
 
@@ -176,7 +176,7 @@ See [Integration Setup Failures](https://developers.home-assistant.io/docs/integ
 
 **Structure requirements:**
 
-- Inherit from both platform entity and `ColorTemperatureMixerEntity` (order matters)
+- Inherit from both platform entity and the base entity class from `..entity` (order matters)
 - Set `_attr_unique_id` in `__init__` (format: `{entry_id}_{key}`)
 - Use coordinator data only - Never call API directly
 - Handle unavailability via `_attr_available`
@@ -213,7 +213,7 @@ If you are asked to write tests for entities:
 
 import pytest
 
-from custom_components.color_temperature_light_mixer.sensor import async_setup_entry
+from custom_components.{domain}.sensor import async_setup_entry
 
 @pytest.mark.unit
 async def test_sensor_setup(hass, config_entry, coordinator):
@@ -223,7 +223,7 @@ async def test_sensor_setup(hass, config_entry, coordinator):
 
 ## Common Patterns
 
-**Config entry data:** `entry_data: ColorTemperatureMixerData = hass.data[DOMAIN][entry.entry_id]`
+**Config entry data:** `entry.runtime_data.coordinator` / `entry.runtime_data.client` — runtime objects stored during `async_setup_entry()` in `data.py`
 
 **Device info:** Provided via base entity class (manufacturer, model, serial, config URL, firmware)
 
