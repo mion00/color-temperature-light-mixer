@@ -45,6 +45,7 @@ ENTITY_DESCRIPTIONS = (
 class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, RestoreEntity):
     """Light group that mixes a group of lights having different color temperatures."""
 
+    # overridden in async_update_group_state()
     _attr_color_mode = ColorMode.COLOR_TEMP
     _attr_supported_color_modes = {ColorMode.COLOR_TEMP}
 
@@ -197,6 +198,11 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         """Customize method from parent class LightGroup to apply custom brightness and color temperature."""
 
         super().async_update_group_state()
+
+        # Ensure COLOR_TEMP is always supported, since it is the main feature of the group
+        self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+        # Ensure COLOR_TEMP is always the current mode, since it is the main feature of the group
+        self._attr_color_mode = ColorMode.COLOR_TEMP
 
         states = [state for entity_id in self._entity_ids if (state := self.hass.states.get(entity_id)) is not None]
         on_states = [state for state in states if state.state == STATE_ON]
