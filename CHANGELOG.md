@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/mion00/color-temperature-light-mixer/compare/v0.2.0...v0.2.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **diagnostics.py:** fix missing runtime data when exporting diagnostics ([d3d670b](https://github.com/mion00/color-temperature-light-mixer/commit/d3d670b37316fcac6727b59eca20ba761b281f7d))
+
 ## [0.2.0](https://github.com/mion00/color-temperature-light-mixer/compare/0.1.2...v0.2.0) (2026-05-31)
 
 
