@@ -23,10 +23,12 @@ from typing import TYPE_CHECKING
 import voluptuous as vol
 
 from custom_components.color_temperature_light_mixer.config_flow_handler.schemas.config import get_user_schema
+from custom_components.color_temperature_light_mixer.data import ColorTemperatureMixerData
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_SOURCE, Platform
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_loaded_integration
 
 from .const import DOMAIN, LOGGER
 
@@ -107,6 +109,10 @@ async def async_setup_entry(
     For more information:
     https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
     """
+    # Store runtime data
+    entry.runtime_data = ColorTemperatureMixerData(
+        integration=async_get_loaded_integration(hass, entry.domain),
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

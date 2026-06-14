@@ -21,10 +21,6 @@ if TYPE_CHECKING:
 TO_REDACT = {
     CONF_PASSWORD,
     CONF_USERNAME,
-    "username",
-    "password",
-    "api_key",
-    "token",
 }
 
 
