@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/mion00/color-temperature-light-mixer/compare/v0.2.1...v0.2.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **color_temperature_mixer.py:** force supported color modes after calling parent class in async_update_group_state() ([aa209bc](https://github.com/mion00/color-temperature-light-mixer/commit/aa209bc6dedba8068bfca16d756c849c75211d9c)), closes [#29](https://github.com/mion00/color-temperature-light-mixer/issues/29)
+
 ## [0.2.1](https://github.com/mion00/color-temperature-light-mixer/compare/v0.2.0...v0.2.1) (2026-06-14)
 
 
