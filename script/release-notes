@@ -34,9 +34,11 @@ SCRATCH_DIR=".ai-scratch"
 COPILOT_MODEL="${COPILOT_MODEL:-claude-sonnet-4.6}"
 DIFF_MAX_BYTES="${RELEASE_NOTES_DIFF_MAX:-8000}"
 
-# Integration domain — used for path filtering
-DOMAIN="color_temperature_light_mixer"
-COMPONENT_DIR="custom_components/$DOMAIN"
+# Integration domain — auto-detected from custom_components/
+# shellcheck source=script/.lib/integration.sh
+source "$SCRIPT_DIR/.lib/integration.sh"
+DOMAIN="$INTEGRATION_DOMAIN"
+COMPONENT_DIR="$INTEGRATION_PATH"
 
 # User-facing paths (changes here are most relevant for release notes)
 USER_FACING_PATHS=(
@@ -166,6 +168,10 @@ log_header "Gathering release context"
 CURRENT_VERSION=$("$SCRIPT_DIR/version")
 log_info "Current version: $CURRENT_VERSION"
 
+# Integration display name from manifest
+INTEGRATION_TITLE=$(python3 -c "import json; print(json.load(open('$COMPONENT_DIR/manifest.json')).get('name', '$DOMAIN'))" 2>/dev/null || echo "$DOMAIN")
+log_info "Integration title: $INTEGRATION_TITLE"
+
 # Find last tag (fallback to initial commit if none exists)
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
 if [[ -n "$LAST_TAG" ]]; then
@@ -256,7 +262,7 @@ Write: "You can now...", "Your automations will...", "The setup wizard now..."
   ✅ "Fixed: Sensor data could show incorrect values when switching to/from daylight saving time"
 
 **Rule 4 — New features: lead with what the user can DO.**
-  ❌ "Add ColorTemperatureMixerFanSpeedSensor with EntityDescription"
+  ❌ "Add {ClassPrefix}FanSpeedSensor with EntityDescription"
   ✅ "New sensor shows your device's current fan speed on your dashboard"
 
 **Rule 5 — Refactoring without user impact: omit completely.**
@@ -320,7 +326,7 @@ PROMPT_HEADER
 
 ## Context
 
-This is a Home Assistant custom integration called 'Color Temperature Light Mixer'.
+This is a Home Assistant custom integration called '${INTEGRATION_TITLE:-${DOMAIN}}'.
 Domain: $DOMAIN
 Current version: $CURRENT_VERSION
 
