@@ -156,8 +156,8 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         )
 
         brightness_calculator = BrightnessCalculator(
-            self.min_color_temp_kelvin,
-            self.max_color_temp_kelvin,
+            self.__warm_light.color_temp_kelvin,
+            self.__cold_light.color_temp_kelvin,
             target_temp_kelvin,
             target_brightness,
             priority,
@@ -203,7 +203,8 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
         # Ensure COLOR_TEMP is always the current mode, since it is the main feature of the group
         self._attr_color_mode = ColorMode.COLOR_TEMP
-
+        self._attr_min_color_temp_kelvin = self.__warm_light.color_temp_kelvin
+        self._attr_max_color_temp_kelvin = self.__cold_light.color_temp_kelvin
         states = [state for entity_id in self._entity_ids if (state := self.hass.states.get(entity_id)) is not None]
         on_states = [state for state in states if state.state == STATE_ON]
 

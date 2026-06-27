@@ -67,6 +67,8 @@ def get_user_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
             ): selector.ColorTempSelector(
                 selector.ColorTempSelectorConfig(
                     unit=selector.ColorTempSelectorUnit.KELVIN,
+                    min=2000,
+                    max=6500,
                 ),
             ),
             vol.Required(
@@ -118,6 +120,8 @@ def get_reconfigure_schema(defaults: Mapping[str, str]) -> vol.Schema:
             ): selector.ColorTempSelector(
                 selector.ColorTempSelectorConfig(
                     unit=selector.ColorTempSelectorUnit.KELVIN,
+                    min=2000,
+                    max=6500,
                 ),
             ),
             vol.Required(
