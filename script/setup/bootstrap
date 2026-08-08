@@ -204,7 +204,7 @@ else
         exit 1
     fi
     if [[ "$HA_VERSION" =~ ^[0-9]{4}\.[0-9]+\.0$ ]]; then
-        HA_VERSION="${HA_VERSION%.*}" # "2026.4.0" → "2026.4" → latest patch
+        HA_VERSION="${HA_VERSION%.*}" # "2026.8.0" → "2026.8" → latest patch
     fi
     resolve_ha_version HA_VERSION "$HA_VERSION"
 fi
@@ -220,9 +220,22 @@ if [[ -f "$HA_VERSION_MARKER" ]]; then
     CACHED_HA_VERSION=$(cat "$HA_VERSION_MARKER")
     if [[ "$CACHED_HA_VERSION" != "$HA_VERSION" ]]; then
         log_warning "HA version changed ($CACHED_HA_VERSION → $HA_VERSION) — recreating virtual environment"
+        # Leave the environment before deleting it. Otherwise Bash may keep the
+        # venv's uv executable cached and try to run it after it has been removed.
+        if declare -F deactivate >/dev/null 2>&1; then
+            deactivate
+        fi
         # Use find instead of rm -rf: the path may be a named Docker volume mount point
         # which cannot be removed itself — only its contents can be deleted.
         find "$VENV_PATH" -mindepth 1 -delete
+        hash -r
+        # uv may previously have existed only inside the removed venv (for
+        # example when bootstrap was started from an activated local venv).
+        if ! command -v uv >/dev/null 2>&1; then
+            log_info "UV not found outside the removed venv, installing..."
+            pipx install uv
+            hash -r
+        fi
         uv venv "$VENV_PATH"
         # shellcheck source=/dev/null
         source "$VENV_PATH/bin/activate"
@@ -269,9 +282,19 @@ fi
 # GITHUB_ACTIONS is always set to "true" in GitHub Actions environments
 if [[ -d ".git" && -z "${GITHUB_ACTIONS:-}" ]]; then
     log_header "Installing pre-commit hooks"
-    set +e
-    pre-commit install || log_warning "Failed to install pre-commit hooks"
-    set -e
+    # Do not downgrade a failure here to a warning that scrolls past unnoticed:
+    # a silent failure leaves the repo with no hooks at all, so Ruff, yamllint
+    # and codespell never run on commit and nobody finds out until CI fails.
+    if ! command -v pre-commit >/dev/null 2>&1; then
+        log_error "pre-commit not found — hooks NOT installed"
+        log_info "Expected it from requirements_dev.txt; re-run this script after fixing the venv"
+        exit 1
+    fi
+    if ! pre-commit install; then
+        log_error "pre-commit install failed — hooks NOT installed"
+        exit 1
+    fi
+    log_success "Git hooks installed"
 else
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
         log_info "Skipping pre-commit hooks (running in GitHub Actions)"
