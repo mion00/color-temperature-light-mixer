@@ -22,6 +22,8 @@
   "python.terminal.activateEnvInCurrentTerminal": true,
   // .devcontainer/.env uses Bash syntax (sourced by setup scripts) — not a Python dotenv file.
   // Disable VS Code's env file injection to avoid parse errors and unexpected variable leakage.
+  // Also clear python.envFile to avoid Python extension warnings about a configured env file.
+  "python.envFile": "",
   "python.terminal.useEnvFile": false,
   "python.testing.pytestArgs": ["--no-cov"],
   "python.testing.pytestEnabled": false,
@@ -31,6 +33,15 @@
     }
   },
   "terminal.integrated.defaultProfile.linux": "zsh",
+  // Devcontainer already isolates execution; disable agent terminal sandbox to
+  // avoid double-sandbox namespace/prerequisite issues in chat tooling.
+  "chat.agent.sandbox.enabled": "off",
+  // Keep explicit compatibility with terminal-tool specific setting variants.
+  "chat.tools.terminal.sandbox.enabled": false,
+  // Default to "Allow all" style permissions for chat tools in this devcontainer.
+  "chat.tools.global.autoApprove": true,
+  // Claude Code extension-specific equivalent of broad auto permissions.
+  "claudeCode.initialPermissionMode": "bypassPermissions",
   "yaml.customTags": [
     "!secret scalar",
     "!include scalar",

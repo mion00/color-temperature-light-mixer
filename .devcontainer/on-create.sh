@@ -44,6 +44,42 @@ sudo chown vscode:vscode \
     /home/vscode/ha-venv \
     /home/vscode/uv-cache
 
+# Disable Claude Code's built-in Bash sandbox inside the devcontainer.
+# The devcontainer's own Docker/OrbStack runtime blocks unprivileged user
+# namespace creation entirely (not just the fresh /proc mount bubblewrap's
+# "weaker nested sandbox" mode works around), so bubblewrap cannot start
+# here at all. The devcontainer itself is already the isolation boundary,
+# which Anthropic documents as an equivalent alternative to the built-in
+# sandbox — see https://code.claude.com/docs/en/sandbox-environments.
+#
+# Written to /etc/claude-code/managed-settings.json (not a repo file) so it
+# only applies inside this container: that path lives on the container's own
+# filesystem, not the bind-mounted workspace, so opening this repo outside
+# the devcontainer never picks it up.
+print_info "Disabling Claude Code's Bash sandbox (devcontainer is the isolation boundary)..."
+sudo mkdir -p /etc/claude-code
+sudo tee /etc/claude-code/managed-settings.json >/dev/null <<'EOF'
+{
+  "sandbox": {
+    "enabled": false
+  }
+}
+EOF
+
+# Disable Codex CLI's built-in sandbox inside the devcontainer, for the same
+# reason as Claude Code above: bubblewrap/seccomp can't create the namespaces
+# it needs here, and the devcontainer itself is already the isolation boundary.
+#
+# Written to ~/.codex/config.toml (user scope, not a repo file) so it only
+# applies inside this container's home directory, never on the bare host.
+# A project-scoped .codex/config.toml (if one is ever added to the repo) can
+# override this per-key, but only by explicitly setting sandbox_mode itself.
+print_info "Disabling Codex CLI's sandbox (devcontainer is the isolation boundary)..."
+mkdir -p /home/vscode/.codex
+tee /home/vscode/.codex/config.toml >/dev/null <<'EOF'
+sandbox_mode = "danger-full-access"
+EOF
+
 # Run post-hook if present
 _hook_file="$(cd "$(dirname "$0")" && pwd)/hooks/on-create.post.sh"
 if [[ -f "$_hook_file" ]]; then
