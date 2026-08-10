@@ -22,6 +22,8 @@
   "python.terminal.activateEnvInCurrentTerminal": true,
   // .devcontainer/.env uses Bash syntax (sourced by setup scripts) — not a Python dotenv file.
   // Disable VS Code's env file injection to avoid parse errors and unexpected variable leakage.
+  // Also clear python.envFile to avoid Python extension warnings about a configured env file.
+  "python.envFile": "",
   "python.terminal.useEnvFile": false,
   "python.testing.pytestArgs": ["--no-cov"],
   "python.testing.pytestEnabled": false,
@@ -31,6 +33,24 @@
     }
   },
   "terminal.integrated.defaultProfile.linux": "zsh",
+  // Devcontainer already isolates execution; disable agent terminal sandbox to
+  // avoid double-sandbox namespace/prerequisite issues in chat tooling.
+  "chat.agent.sandbox.enabled": "off",
+  // Keep explicit compatibility with terminal-tool specific setting variants.
+  "chat.tools.terminal.sandbox.enabled": false,
+  // Disallow global auto-approval; use workspace/session scoped approvals instead.
+  "chat.tools.global.autoApprove": false,
+  // Always require manual approval for sensitive paths, even when broader auto-approve is enabled.
+  "chat.tools.edits.autoApprove": {
+    "**/.env": false,
+    "**/.env.*": false,
+    "**/.git/**": false,
+    ".github/workflows/**": false,
+    ".github/actions/**": false,
+    "release-please-config.json": false,
+    "script/release-notes": false,
+    "script/version": false
+  },
   "yaml.customTags": [
     "!secret scalar",
     "!include scalar",

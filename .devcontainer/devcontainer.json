@@ -44,7 +44,7 @@
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.14"
     },
-    "ghcr.io/devcontainers/features/node:2": {
+    "ghcr.io/devcontainers/features/node:": {
       "version": "lts"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {},
@@ -55,6 +55,7 @@
       "packages": [
         "autoconf",
         "automake",
+        "bubblewrap",
         "bat",
         "eza",
         "fd-find",
@@ -66,6 +67,7 @@
         "ipython3",
         "jo",
         "jq",
+        "just",
         "libpcap-dev",
         "libssl-dev",
         "libtool",
@@ -76,6 +78,7 @@
         "ripgrep",
         "shellcheck",
         "shfmt",
+        "socat",
         "sqlite3",
         "tree",
         "yamllint"
@@ -129,6 +132,8 @@
         "python.terminal.activateEnvInCurrentTerminal": true,
         // .devcontainer/.env uses Bash syntax (sourced by setup scripts) — not a Python dotenv file.
         // Disable VS Code's env file injection to avoid parse errors and unexpected variable leakage.
+        // Also clear python.envFile to avoid Python extension warnings about a configured env file.
+        "python.envFile": "",
         "python.terminal.useEnvFile": false,
         "python.testing.pytestArgs": ["--no-cov"],
         "terminal.integrated.profiles.linux": {
@@ -137,6 +142,24 @@
           }
         },
         "terminal.integrated.defaultProfile.linux": "zsh",
+        // Devcontainer already isolates execution; disable agent terminal sandbox to
+        // avoid double-sandbox namespace/prerequisite issues in chat tooling.
+        "chat.agent.sandbox.enabled": "off",
+        // Keep explicit compatibility with terminal-tool specific setting variants.
+        "chat.tools.terminal.sandbox.enabled": false,
+        // Disallow global auto-approval; use workspace/session scoped approvals instead.
+        "chat.tools.global.autoApprove": false,
+        // Always require manual approval for sensitive paths, even when broader auto-approve is enabled.
+        "chat.tools.edits.autoApprove": {
+          "**/.env": false,
+          "**/.env.*": false,
+          "**/.git/**": false,
+          ".github/workflows/**": false,
+          ".github/actions/**": false,
+          "release-please-config.json": false,
+          "script/release-notes": false,
+          "script/version": false
+        },
         "yaml.customTags": [
           "!secret scalar",
           "!include scalar",
@@ -210,6 +233,12 @@
     // Named volume for node_modules: keeps it on Container FS (not bind mount) for performance.
     // Docker manages this volume separately from the workspace — npm ci runs fast on overlay FS.
     "source=${localWorkspaceFolderBasename}_node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    // Persist Claude CLI home data (sessions/history/auth) across container rebuilds.
+    // Useful when using Claude Code locally inside the DevContainer.
+    "source=${localWorkspaceFolderBasename}_claude_home,target=/home/vscode/.claude,type=volume",
+    // Persist Codex CLI data (sessions/history/config) across container rebuilds.
+    // Config bootstrap in on-create continues to work because this directory stays writable.
+    "source=${localWorkspaceFolderBasename}_codex_home,target=/home/vscode/.codex,type=volume",
     // Mount host gitconfig for local development (ignored in Codespaces)
     // In Codespaces, GitHub automatically configures Git with your account
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/home/vscode/.gitconfig.host,type=bind,consistency=cached,readonly"
