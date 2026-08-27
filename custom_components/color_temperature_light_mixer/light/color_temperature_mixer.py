@@ -204,6 +204,15 @@ class ColorTemperatureMixerLight(LightGroup, ColorTemperatureMixerEntity, Restor
         # Ensure COLOR_TEMP is always the current mode, since it is the main feature of the group
         self._attr_color_mode = ColorMode.COLOR_TEMP
 
+        # LightGroup.async_update_group_state() (called above) recomputes min/max_color_temp_kelvin
+        # by reducing the *member* lights' own supported range, falling back to HA's generic
+        # defaults (2000K/6500K) when a member doesn't report one - which is always the case here,
+        # since the warm/cold child lights are plain dimmers with no native color-temp support.
+        # This clobbers the real, configured bounds on every state update, which in turn are what
+        # compute_brightnesses() uses to work out the warm/cold split - so restore them.
+        self._attr_min_color_temp_kelvin = self.__warm_light.color_temp_kelvin
+        self._attr_max_color_temp_kelvin = self.__cold_light.color_temp_kelvin
+
         states = [state for entity_id in self._entity_ids if (state := self.hass.states.get(entity_id)) is not None]
         on_states = [state for state in states if state.state == STATE_ON]
 
