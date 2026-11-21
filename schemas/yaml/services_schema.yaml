@@ -1,5 +1,5 @@
 # YAML Schema for Home Assistant services.yaml
-# Based on: https://developers.home-assistant.io/docs/dev_101_services/
+# Based on: https://contributors.home-assistant.io/core/integrations/actions/
 $schema: http://json-schema.org/draft-07/schema#
 title: Home Assistant Service Actions Definition
 description: Schema for Home Assistant services.yaml file that defines service actions for custom integrations
@@ -61,23 +61,6 @@ patternProperties:
                         oneOf:
                           - type: string
                           - type: number
-
-          device:
-            type: object
-            description: Device selector configuration
-            additionalProperties: false
-            properties:
-              integration:
-                type: string
-                description: Filter devices by integration
-
-              manufacturer:
-                type: string
-                description: Filter devices by manufacturer
-
-              model:
-                type: string
-                description: Filter devices by model
 
           area:
             type: object
