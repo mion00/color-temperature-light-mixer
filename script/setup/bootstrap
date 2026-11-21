@@ -44,18 +44,20 @@ fi
 unset _env_local
 
 run_hook "setup/bootstrap" "pre"
+track_run bootstrap --exclusive
 
 if [[ ${APT_UPDATE:-"0"} == "1" ]]; then
     log_header "Updating system packages"
-    sudo apt-get update
-    sudo apt-get upgrade -y
+    sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo -n env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 fi
 
+"$SCRIPT_DIR/toolchain"
+use_mise_env
+
+UV_HINT="mise (https://mise.jdx.dev/getting-started.html), then script/setup/toolchain — or uv itself"
 log_header "Checking for uv"
-if ! command -v uv >/dev/null 2>&1; then
-    log_info "UV not found, installing..."
-    pipx install uv
-fi
+require_command uv "$UV_HINT"
 
 log_header "Checking for Python virtual environment"
 
@@ -174,6 +176,39 @@ EOF
     set -e
 fi
 
+target_ha_version HA_VERSION || exit 1
+
+HA_CORE_BASE_URL="https://raw.githubusercontent.com/home-assistant/core/${HA_VERSION}"
+
+# Recreate the venv if the installed HA version no longer matches the target.
+# This handles the cached-volume case: the venv persists across rebuilds, so without
+# this check an HA version bump would silently run on the old installation.
+# The marker file ($VENV_PATH/.ha-version) is written after a successful install below.
+#
+# This has to run *before* any dependency is installed: the rebuild empties the
+# venv, so anything installed earlier in the same run is thrown away and never
+# reinstalled.
+HA_VERSION_MARKER="$VENV_PATH/.ha-version"
+if [[ -f "$HA_VERSION_MARKER" ]]; then
+    CACHED_HA_VERSION=$(cat "$HA_VERSION_MARKER")
+    if [[ "$CACHED_HA_VERSION" != "$HA_VERSION" ]]; then
+        log_warning "HA version changed ($CACHED_HA_VERSION → $HA_VERSION) — recreating virtual environment"
+        # Leave the environment before deleting it. Otherwise Bash may keep the
+        # venv's uv executable cached and try to run it after it has been removed.
+        if declare -F deactivate >/dev/null 2>&1; then
+            deactivate
+        fi
+        # Use find instead of rm -rf: the path may be a named Docker volume mount point
+        # which cannot be removed itself — only its contents can be deleted.
+        find "$VENV_PATH" -mindepth 1 -delete
+        hash -r
+        require_command uv "$UV_HINT"
+        uv venv "$VENV_PATH"
+        # shellcheck source=/dev/null
+        source "$VENV_PATH/bin/activate"
+    fi
+fi
+
 log_header "Installing development dependencies"
 uv pip install --requirement requirements_dev.txt
 
@@ -181,7 +216,7 @@ log_header "Installing test dependencies"
 uv pip install --requirement requirements_test.txt
 
 log_header "Installing runtime dependencies"
-if [[ -s requirements.txt ]] && grep -qv '^#' requirements.txt | grep -q '[^[:space:]]'; then
+if grep -qE '^[[:space:]]*[^[:space:]#]' requirements.txt 2>/dev/null; then
     uv pip install --requirement requirements.txt
 else
     log_info "No runtime dependencies defined (this is normal for blueprints)"
@@ -190,43 +225,6 @@ fi
 if [[ -f requirements.local.txt ]]; then
     log_header "Installing local extra dependencies (requirements.local.txt)"
     uv pip install --requirement requirements.local.txt
-fi
-
-if [[ -n "${HA_VERSION:-}" ]]; then
-    # Explicit HA_VERSION from environment — use exactly as specified
-    resolve_ha_version HA_VERSION "$HA_VERSION"
-else
-    # Read from hacs.json: treat YEAR.MONTH.0 as YEAR.MONTH so the latest
-    # stable patch is installed (hacs.json records minimum version, not pin)
-    HA_VERSION=$(grep '"homeassistant"' hacs.json | head -1 | sed 's/.*"homeassistant"\s*:\s*"\([^"]*\)".*/\1/')
-    if [[ -z "$HA_VERSION" ]]; then
-        log_error "HA_VERSION not set and could not be determined from hacs.json"
-        exit 1
-    fi
-    if [[ "$HA_VERSION" =~ ^[0-9]{4}\.[0-9]+\.0$ ]]; then
-        HA_VERSION="${HA_VERSION%.*}" # "2026.4.0" → "2026.4" → latest patch
-    fi
-    resolve_ha_version HA_VERSION "$HA_VERSION"
-fi
-
-HA_CORE_BASE_URL="https://raw.githubusercontent.com/home-assistant/core/${HA_VERSION}"
-
-# Recreate the venv if the installed HA version no longer matches the target.
-# This handles the cached-volume case: the venv persists across rebuilds, so without
-# this check an HA version bump would silently run on the old installation.
-# The marker file ($VENV_PATH/.ha-version) is written after a successful install below.
-HA_VERSION_MARKER="$VENV_PATH/.ha-version"
-if [[ -f "$HA_VERSION_MARKER" ]]; then
-    CACHED_HA_VERSION=$(cat "$HA_VERSION_MARKER")
-    if [[ "$CACHED_HA_VERSION" != "$HA_VERSION" ]]; then
-        log_warning "HA version changed ($CACHED_HA_VERSION → $HA_VERSION) — recreating virtual environment"
-        # Use find instead of rm -rf: the path may be a named Docker volume mount point
-        # which cannot be removed itself — only its contents can be deleted.
-        find "$VENV_PATH" -mindepth 1 -delete
-        uv venv "$VENV_PATH"
-        # shellcheck source=/dev/null
-        source "$VENV_PATH/bin/activate"
-    fi
 fi
 
 log_header "Installing Home Assistant ${HA_VERSION} runtime dependencies"
@@ -257,7 +255,7 @@ if command -v npm >/dev/null 2>&1; then
     # Docker creates named volumes owned by root — fix ownership before npm ci writes into it.
     if [[ -d node_modules && "$(stat -c %U node_modules 2>/dev/null)" == "root" ]]; then
         log_step "Fixing node_modules ownership (Docker volume created as root)"
-        sudo chown "$(id -un):$(id -gn)" node_modules
+        sudo -n chown "$(id -un):$(id -gn)" node_modules
     fi
     npm ci --silent
 else
@@ -265,18 +263,35 @@ else
     log_info "Install Node.js to enable: prettier, markdownlint-cli2"
 fi
 
-# Only install pre-commit hooks in local development, not in CI
+# Only install git hooks in local development, not in CI
 # GITHUB_ACTIONS is always set to "true" in GitHub Actions environments
-if [[ -d ".git" && -z "${GITHUB_ACTIONS:-}" ]]; then
-    log_header "Installing pre-commit hooks"
-    set +e
-    pre-commit install || log_warning "Failed to install pre-commit hooks"
-    set -e
+if git rev-parse --git-dir >/dev/null 2>&1 && [[ -z "${GITHUB_ACTIONS:-}" ]]; then
+    log_header "Installing git hooks"
+    # Do not downgrade a failure here to a warning that scrolls past unnoticed:
+    # a silent failure leaves the repo with no hooks at all, so Ruff, yamllint
+    # and codespell never run on commit and nobody finds out until CI fails.
+    if ! command -v prek >/dev/null 2>&1; then
+        log_error "prek not found — hooks NOT installed"
+        log_info "Expected it from Home Assistant's requirements_test.txt; re-run this script after fixing the venv"
+        exit 1
+    fi
+    # Repositories bootstrapped before the switch carry a pre-commit-generated
+    # hook, which prek leaves alone unless told to overwrite. Overwrite only
+    # that one, so a hand-written hook still stops the install.
+    prek_install_args=()
+    if grep -qs "generated by pre-commit" .git/hooks/pre-commit; then
+        prek_install_args+=(--overwrite)
+    fi
+    if ! prek install "${prek_install_args[@]}"; then
+        log_error "prek install failed — hooks NOT installed"
+        exit 1
+    fi
+    log_success "Git hooks installed"
 else
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        log_info "Skipping pre-commit hooks (running in GitHub Actions)"
+        log_info "Skipping git hooks (running in GitHub Actions)"
     else
-        log_info "Skipping pre-commit hooks (not a Git repository)"
+        log_info "Skipping git hooks (not a Git repository)"
     fi
 fi
 

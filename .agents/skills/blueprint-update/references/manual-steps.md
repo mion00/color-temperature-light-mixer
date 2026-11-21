@@ -1,0 +1,97 @@
+# Manual steps
+
+What an integration repository has to do by hand because template sync cannot do it, newest first. Each step has an id
+for the `skipped` list in `.agents/blueprint-update.json`, the date it entered the blueprint, and a check that passes
+once it is done. Run the check from the repository root.
+
+## `upstream-rename` — 2026-11-02
+
+**Check:** `grep -q 'jpawlowski/ha-integration-blueprint' .github/workflows/template-sync.yml`
+
+The blueprint moved from `jpawlowski/hacs.integration_blueprint` to `jpawlowski/ha-integration-blueprint`. GitHub
+redirects the old name, so the sync keeps working, but only for as long as nobody claims that name again. Replace the
+old name in `source_repo_path` of this repository's `template-sync.yml`; the workflow is excluded from the sync.
+
+## `brand-images` — 2026-11-02
+
+**Check:** `ls custom_components/*/brand/icon.png`
+
+Replace `custom_components/<domain>/brand/` with the product's images — what is required:
+[`ha-marketplace`](../../ha-marketplace/SKILL.md#3-brand-images). `custom_components/` is never synced, so only new repositories get the blueprint's placeholder. Once the file exists,
+the HACS validation in `validate.yml` stops skipping its `brands` check.
+
+## `root-gitignore` — 2026-11-02
+
+**Check:** `grep -qE '^![^/]+/$' custom_components/.gitignore && ! grep -qxF '.gitignore' .templatesyncignore`
+
+The root `.gitignore` is now template-synced and no longer generated from toptal, whose unanchored patterns such as
+`image`, `tts` and `lib` hid integration platforms of that name. Opt in in this order: first create
+`custom_components/.gitignore` containing `!<domain>/`, then delete the `.gitignore` line from `.templatesyncignore`.
+The other way round, Git silently ignores every new file in the integration, and already tracked files hide that.
+Move anything this repository added to its root `.gitignore` into `custom_components/.gitignore` or
+`.git/info/exclude` first — the next sync overwrites the root file.
+
+## `squash-pull-requests` — 2026-11-01
+
+**Check:** `gh api "repos/{owner}/{repo}" --jq '.allow_merge_commit == false' | grep -q true`
+
+The blueprint's `main` ruleset now takes every change through a pull request, admins included — squash by default,
+rebase for a pull request whose commits each pass the commit rules — and a new workflow `pr-title.yml` checks the
+title, which becomes the squash commit, and reports whether each commit would survive a rebase.
+Ask the developer whether they want that: if so, copy the workflow (`script/blueprint-update` lists it) and run
+`script/setup/github`; if not, follow _Want it less strict?_ in `docs/development/REPOSITORY_SETUP.md` of the
+blueprint and record the step as skipped.
+
+## `lint-and-test-check` — 2026-11-01
+
+**Check:** `! gh api "repos/{owner}/{repo}/rules/branches/main" --jq '.[].parameters.required_status_checks[]?.context' 2>/dev/null | grep -qx Ruff`
+
+The lint workflow's job is now called _Lint and test_ and also runs `script/type-check` and `script/test`. A ruleset
+or branch protection that still requires the old `Ruff` check waits for it forever and blocks every pull request:
+replace it with `Lint and test` — `script/setup/github` does that for the `main` ruleset it manages.
+
+## `repository-settings` — 2026-11-01
+
+**Check:** `gh api "repos/{owner}/{repo}/rulesets" --jq 'map(.name) | index("main") != null' | grep -q true`
+
+Run `script/setup/github --dry-run`, show the developer what it would change, and run it without the flag once they
+agree. It turns on Dependabot alerts and, on a public repository, secret scanning and push protection, and imports the
+`main` ruleset; `docs/development/REPOSITORY_SETUP.md` in the blueprint explains each setting and what it costs on a
+private repository. The new workflows `codeql.yml` and `secret-history-scan.yml` arrive through the sync only with a
+`TEMPLATE_SYNC_TARGET_PAT`; otherwise `script/blueprint-update` lists them as new files to copy.
+
+## `blueprint-identity` — 2026-11-01
+
+**Check:** `grep -q '"identity"' .agents/blueprint-update.json`
+
+Record this repository's names in `.agents/blueprint-update.json`, as `initialize.sh` now does for a new one:
+`"identity": {"domain": …, "title": …, "prefix": …, "owner": …, "repository": …, "author": …}` beside `reviewed`.
+Without it `script/blueprint-update` infers them from the manifest, the coordinator class and `LICENSE`, and a renamed
+class lets the blueprint's own class prefix through into the diff. The values are what `initialize.sh` asked for:
+the domain, the title, the class prefix, the GitHub owner and repository name, and the author.
+
+## `template-sync-guard` — 2026-11-01
+
+**Check:** `grep -q template-sync-guard .github/workflows/template-sync.yml`
+
+Copy the step _Keep this repository's newer versions_ from the blueprint's `template-sync.yml` to the end of this
+repository's; `script/blueprint-update` shows it in context. Without it, a sync lowers every version this repository's
+Dependabot or Renovate raised further than the blueprint has. The script it calls, `script/template-sync-guard`,
+already arrives through the sync — only the workflow is excluded.
+
+## `mise-project-tools` — 2026-11-01
+
+**Check:** `grep -qxF '.config/mise/conf.d/project.toml' .templatesyncignore`
+
+Add `.config/mise/conf.d/project.toml` to `.templatesyncignore`, in the section for project-owned files. It is where
+this repository's own command-line tools go; `mise.toml` holds the blueprint's and is overwritten by the sync.
+Create the file from the blueprint's copy if the project wants a tool of its own now.
+
+## `agents-md-outside-container` — 2026-11-01
+
+**Check:** `grep -q '^## Outside the dev container' AGENTS.md && grep -q 'never wait for an answer' AGENTS.md`
+
+Carry over three changes to `AGENTS.md`: the CLI tools paragraph now names `mise.toml` instead of the dev container,
+_Commands you run yourself never wait for an answer_ joined the validation section, and _Outside the dev container_
+is new. They tell agents how the repository works in a cloud session or on a machine without the dev container.
+`script/blueprint-update` shows all three as hunks.
