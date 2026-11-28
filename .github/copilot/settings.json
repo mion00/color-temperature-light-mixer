@@ -1,0 +1,18 @@
+{
+  "extraKnownMarketplaces": {
+    "ha-custom-integration-skills": {
+      "source": {
+        "source": "github",
+        "repo": "jpawlowski/ha-custom-integration-skills",
+        "ref": "v0.5.3"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "haci-build@ha-custom-integration-skills": true,
+    "haci-plan@ha-custom-integration-skills": true,
+    "haci-publish@ha-custom-integration-skills": true,
+    "haci-quality@ha-custom-integration-skills": true,
+    "haci-review@ha-custom-integration-skills": true
+  }
+}

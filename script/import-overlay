@@ -1,0 +1,180 @@
+#!/bin/bash
+
+# script/import-overlay: Bring the blueprint into an existing integration repository as one overlay commit
+#
+# Runs from the blueprint itself. Initialises a temporary copy of it with the target's domain, then, on a new branch in
+# the target, replaces every tracked file except custom_components/<domain>/ with the initialised blueprint and stages
+# the result. The branch starts from the target's current branch, so run it on an up-to-date main. Nothing is
+# committed; the target's history stays. Prints the groups an agent works through next: files only in the old
+# repository, files in both, the old agent instructions, files only in the blueprint.
+# The procedure around it: .agents/skills/blueprint-import/references/git-strategy.md (option A).
+#
+# Usage:
+#   ./script/import-overlay --target DIR [--branch NAME] [--from DIR] -- <initialize.sh options>
+#
+# Options:
+#   --target DIR    The existing integration repository; its working tree must be clean
+#   --branch NAME   Branch created in the target (default: chore/adopt-blueprint)
+#   --from DIR      Use an already initialised blueprint instead of initialising a copy of this one
+#   -- ...          Passed to initialize.sh: --title, --namespace, --repo, --author, --category.
+#                   --domain and --force are set from the target and must not be given.
+#
+# Example:
+#   ./script/import-overlay --target ../my-integration -- \
+#       --title "My Integration" --namespace MyIntegration --repo me/my-integration --author "Jane Doe"
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BLUEPRINT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=script/.lib/output.sh
+source "$SCRIPT_DIR/.lib/output.sh"
+
+TARGET=""
+BRANCH="chore/adopt-blueprint"
+FROM=""
+INIT_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --target)
+        TARGET="${2:?--target needs a folder}"
+        shift 2
+        ;;
+    --branch)
+        BRANCH="${2:?--branch needs a name}"
+        shift 2
+        ;;
+    --from)
+        FROM="${2:?--from needs a folder}"
+        shift 2
+        ;;
+    --)
+        shift
+        INIT_ARGS=("$@")
+        break
+        ;;
+    *)
+        die "Unknown option: $1 (see the usage at the top of script/import-overlay)"
+        ;;
+    esac
+done
+
+[[ -n $TARGET ]] || die "--target is required"
+# Relative --target and --from are taken from the caller's folder, so resolve them before changing into the blueprint.
+TARGET_ARG="$TARGET"
+TARGET="$(cd "$TARGET_ARG" && pwd)" || die "--target $TARGET_ARG does not exist"
+if [[ -n $FROM ]]; then
+    FROM_ARG="$FROM"
+    FROM="$(cd "$FROM_ARG" && pwd)" || die "--from $FROM_ARG does not exist"
+fi
+cd "$BLUEPRINT_ROOT"
+[[ $TARGET != "$BLUEPRINT_ROOT" ]] || die "--target is the blueprint itself"
+git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 || die "$TARGET is not a git repository"
+[[ -z "$(git -C "$TARGET" status --porcelain)" ]] || die "$TARGET has uncommitted changes; commit or stash them first"
+git -C "$TARGET" show-ref --verify --quiet "refs/heads/$BRANCH" && die "Branch $BRANCH already exists in $TARGET"
+for arg in "${INIT_ARGS[@]}"; do
+    [[ $arg != --domain && $arg != --force ]] || die "$arg is set by script/import-overlay; leave it out"
+done
+
+MANIFESTS="$(git -C "$TARGET" ls-files -- ':(glob)custom_components/*/manifest.json')"
+[[ -n $MANIFESTS ]] || die "No integration with a manifest.json found under $TARGET/custom_components/"
+[[ $(wc -l <<<"$MANIFESTS") -eq 1 ]] ||
+    die "$TARGET has more than one integration under custom_components/; the overlay keeps only one"
+DOMAIN="${MANIFESTS#custom_components/}"
+DOMAIN="${DOMAIN%/manifest.json}"
+INTEGRATION_PATH="custom_components/$DOMAIN"
+log_header "Importing the blueprint into $TARGET ($DOMAIN)"
+
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+if [[ -n $FROM ]]; then
+    SOURCE="$FROM"
+    [[ ! -e "$SOURCE/initialize.sh" ]] || die "$SOURCE is not initialised yet (initialize.sh is still there)"
+    git -C "$SOURCE" rev-parse --git-dir >/dev/null 2>&1 || die "$SOURCE is not a git repository"
+else
+    [[ -e initialize.sh ]] || die "Run this from the blueprint itself, before initialize.sh — or pass --from"
+    [[ -z "$(git status --porcelain)" ]] ||
+        log_warning "The blueprint has uncommitted changes; the import uses its last commit"
+    SOURCE="$WORK_DIR/blueprint"
+    log_step "Initialising a copy of the blueprint"
+    git clone -q "$BLUEPRINT_ROOT" "$SOURCE"
+    origin="$(git -C "$TARGET" remote get-url origin)" || die "$TARGET has no origin remote for initialize.sh to check"
+    git -C "$SOURCE" remote set-url origin "$origin"
+    (cd "$SOURCE" && ./initialize.sh --force --domain "$DOMAIN" "${INIT_ARGS[@]}")
+    # initialize.sh deletes itself from a background job a second later; do not wait for it.
+    rm -f "$SOURCE/initialize.sh"
+fi
+git -C "$SOURCE" add -A
+[[ -f "$SOURCE/$INTEGRATION_PATH/manifest.json" ]] ||
+    die "The initialised blueprint has no $INTEGRATION_PATH — was it initialised with --domain $DOMAIN?"
+
+log_step "Overlaying it on a new branch $BRANCH"
+START_BRANCH="$(git -C "$TARGET" branch --show-current)"
+git -C "$TARGET" switch -q -c "$BRANCH"
+on_exit() {
+    local status=$?
+    rm -rf "$WORK_DIR"
+    if [[ $status -ne 0 ]]; then
+        log_error "The overlay stopped half-way. To start over: git -C \"$TARGET\" switch -f ${START_BRANCH:-main} && git -C \"$TARGET\" branch -D $BRANCH"
+    fi
+}
+trap on_exit EXIT
+git -C "$TARGET" ls-files -z | { grep -zv "^$INTEGRATION_PATH/" || true; } | xargs -0 -r git -C "$TARGET" rm -q --
+# The blueprint's tests/ test its example integration, not this one.
+git -C "$SOURCE" ls-files -z | { grep -zv -e "^$INTEGRATION_PATH/" -e '^tests/' || true; } |
+    tar -C "$SOURCE" --null -T - -cf - | tar -xf - -C "$TARGET"
+git -C "$TARGET" add -A
+
+staged() {
+    git -C "$TARGET" diff --cached --no-renames --name-only --diff-filter="$1" HEAD
+}
+AGENT_FILES='(^|/)(AGENTS|CLAUDE|GEMINI)\.md$|^\.(cursorrules|windsurfrules|clinerules)|^\.(agents|claude|codex|opencode|cursor)/|^\.github/(copilot-instructions\.md|instructions/|prompts/|chatmodes/|agents/)'
+agent_only() { grep -E "$AGENT_FILES" <<<"$1" || true; }
+non_agent() { grep -Ev "$AGENT_FILES" <<<"$1" || true; }
+
+ONLY_OLD_ALL="$(staged D)"
+BOTH_ALL="$(staged MT)"
+ONLY_OLD="$(non_agent "$ONLY_OLD_ALL")"
+BOTH="$(non_agent "$BOTH_ALL")"
+AGENT_OLD="$(agent_only "$ONLY_OLD_ALL")"
+AGENT_BOTH="$(agent_only "$BOTH_ALL")"
+AGENT="$(printf '%s\n%s\n' "$AGENT_OLD" "$AGENT_BOTH" | sed '/^$/d')"
+ONLY_BLUEPRINT="$(staged A)"
+
+section() {
+    printf '\n## %s\n\n' "$1"
+    if [[ -z $2 ]]; then
+        echo "(none)"
+        return
+    fi
+    while IFS= read -r file; do
+        echo "- $file"
+    done <<<"$2"
+}
+
+REPORT="$TARGET/.agents/scratch/import-overlay.md"
+mkdir -p "$(dirname "$REPORT")"
+{
+    echo "# Import overlay — files to decide"
+    echo
+    echo "Staged on \`$BRANCH\`, nothing committed. Procedure: blueprint-import, references/git-strategy.md, option A."
+    section "Only in the old repository — restore with git checkout HEAD -- <path>, or leave out" "$ONLY_OLD"
+    section "In both — the blueprint's version is staged; merge what the project added (git show HEAD:<path>)" "$BOTH"
+    section "Agent instructions — the blueprint's version stays; sort the old content (references/agent-knowledge.md)" "$AGENT"
+    section "Only in the blueprint — keep" "$ONLY_BLUEPRINT"
+} >"$REPORT"
+
+count() {
+    if [[ -z $1 ]]; then
+        echo 0
+    else
+        wc -l <<<"$1"
+    fi
+}
+
+log_success "Overlay staged on $BRANCH in $TARGET"
+log_info "The files to decide are listed in ${REPORT#"$TARGET"/} (gitignored)"
+log_info "Only in the old repository: $(count "$ONLY_OLD") · in both: $(count "$BOTH") · agent instructions: $(count "$AGENT") · only in the blueprint: $(count "$ONLY_BLUEPRINT")"

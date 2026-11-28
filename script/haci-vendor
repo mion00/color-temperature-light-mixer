@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# script/haci-vendor: Copy the rules of the pinned haci skills into path-scoped instructions files
+#
+# Reads the ha-custom-integration-skills tag from .claude/settings.json, takes each skill's references/rules.md at that
+# tag and writes it to .agents/instructions/haci.<topic>.instructions.md with this repository's path patterns.
+# Run it after the pin moves, and commit the result.
+#
+# Usage:
+#   ./script/haci-vendor [--check]
+#
+# Examples:
+#   ./script/haci-vendor          # Write the rules files for the pinned tag
+#   ./script/haci-vendor --check  # Only report files that differ from the pinned tag
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
+# shellcheck source=script/.lib/output.sh
+source "$SCRIPT_DIR/.lib/output.sh"
+
+run_hook "haci-vendor" "pre"
+
+log_header "Copying the haci rules files"
+python3 "$SCRIPT_DIR/.lib/haci_vendor.py" "$@"
+
+run_hook "haci-vendor" "post"
