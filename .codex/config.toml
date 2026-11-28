@@ -1,0 +1,19 @@
+[marketplaces.ha-custom-integration-skills]
+source_type = "git"
+source = "https://github.com/jpawlowski/ha-custom-integration-skills.git"
+ref = "v0.5.3"
+
+[plugins."haci-build@ha-custom-integration-skills"]
+enabled = true
+
+[plugins."haci-plan@ha-custom-integration-skills"]
+enabled = true
+
+[plugins."haci-publish@ha-custom-integration-skills"]
+enabled = true
+
+[plugins."haci-quality@ha-custom-integration-skills"]
+enabled = true
+
+[plugins."haci-review@ha-custom-integration-skills"]
+enabled = true

@@ -19,10 +19,8 @@ cd "$SCRIPT_DIR/../.."
 
 # shellcheck source=script/.lib/output.sh
 source "$SCRIPT_DIR/../.lib/output.sh"
-# shellcheck source=script/.lib/download.sh
-source "$SCRIPT_DIR/../.lib/download.sh"
-# shellcheck source=script/.lib/ha_version.sh
-source "$SCRIPT_DIR/../.lib/ha_version.sh"
+# shellcheck source=script/.lib/ha_envs.sh
+source "$SCRIPT_DIR/../.lib/ha_envs.sh"
 
 # Load environment overrides in two layers (later layers win):
 #   .devcontainer/.env       — project-level defaults, committed to the repo
@@ -44,54 +42,28 @@ fi
 unset _env_local
 
 run_hook "setup/bootstrap" "pre"
+track_run bootstrap --exclusive
 
 if [[ ${APT_UPDATE:-"0"} == "1" ]]; then
     log_header "Updating system packages"
-    sudo apt-get update
-    sudo apt-get upgrade -y
+    sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo -n env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 fi
 
+"$SCRIPT_DIR/toolchain"
+use_mise_env
+
+UV_HINT="mise (https://mise.jdx.dev/getting-started.html), then script/setup/toolchain — or uv itself"
 log_header "Checking for uv"
-if ! command -v uv >/dev/null 2>&1; then
-    log_info "UV not found, installing..."
-    pipx install uv
-fi
+require_command uv "$UV_HINT"
 
-log_header "Checking for Python virtual environment"
+log_header "Preparing the Home Assistant environments"
 
-# Determine venv location based on environment
-# In DevContainer: Use $HOME/ha-venv (named volume mounted directly in $HOME, avoids Docker creating ~/.local as root)
-# Local development: Use .local/ha-venv in workspace (isolated per project)
-# CI (GitHub Actions): Use workspace .local/ha-venv (both work)
-if [[ -n "${REMOTE_CONTAINERS:-}" || -n "${CODESPACES:-}" ]]; then
-    # Running in DevContainer or Codespaces
-    VENV_PATH="$HOME/ha-venv"
-    VENV_IS_EXTERNAL=true
-    log_info "DevContainer/Codespaces detected - using external venv"
-elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    # Running in GitHub Actions
-    VENV_PATH="${GITHUB_WORKSPACE:-.}/.local/ha-venv"
-    VENV_IS_EXTERNAL=false
-    log_info "GitHub Actions detected - using workspace venv"
-else
-    # Local development (Mac, Linux, WSL)
-    VENV_PATH=".local/ha-venv"
-    VENV_IS_EXTERNAL=false
-    log_info "Local development detected - using workspace venv"
-fi
-
-if [[ ! -d "$VENV_PATH" ]]; then
-    log_info "Creating virtual environment at $VENV_PATH"
-    uv venv "$VENV_PATH"
-elif [[ ! -x "$VENV_PATH/bin/python3" ]]; then
-    # Venv exists but python3 is broken (broken symlink or missing).
-    # Use find instead of rm -rf: the path may be a named Docker volume mount point
-    # which cannot be removed itself — only its contents can be deleted.
-    log_warning "Existing venv has broken Python interpreter - recreating"
-    find "$VENV_PATH" -mindepth 1 -delete
-    log_info "Creating virtual environment at $VENV_PATH"
-    uv venv "$VENV_PATH"
-fi
+VENV_PATH="$(ha_venv_preferred_path)"
+VENV_IS_EXTERNAL=false
+[[ $VENV_PATH == "$HOME/ha-venv" ]] && VENV_IS_EXTERNAL=true
+mkdir -p "$VENV_PATH"
+ha_envs_migrate
 
 # Create symlinks for IDE compatibility and tool expectations
 if [[ "$VENV_IS_EXTERNAL" == "true" ]]; then
@@ -102,7 +74,7 @@ if [[ "$VENV_IS_EXTERNAL" == "true" ]]; then
     if [[ -d .local/ha-venv && ! -L .local/ha-venv ]]; then
         log_warning "Skipping .local/ha-venv: directory already exists (not a symlink)"
     else
-        ln -sf "$VENV_PATH" .local/ha-venv
+        ln -sfn "$VENV_PATH" .local/ha-venv
     fi
 fi
 
@@ -114,142 +86,71 @@ mkdir -p .local
 if [[ -d .venv && ! -L .venv ]]; then
     log_warning "Skipping .venv: directory already exists (not a symlink)"
 else
-    ln -sf .local/ha-venv .venv
+    ln -sfn .local/ha-venv .venv
 fi
 
 # .local/venv → ha-venv (GitHub Copilot Agent expectation)
 if [[ -d .local/venv && ! -L .local/venv ]]; then
     log_warning "Skipping .local/venv: directory already exists (not a symlink)"
 else
-    ln -sf ha-venv .local/venv
+    ln -sfn ha-venv .local/venv
 fi
 
-# shellcheck source=/dev/null
-source "$VENV_PATH/bin/activate"
-
-# Auto-activate venv in shell RC files (only in DevContainer/Codespaces where venv is external)
+# .devcontainer/.bashrc and .zshrc activate the venv and load .devcontainer/.env*; drop the lines an older bootstrap
+# appended to the rc files for both.
 if [[ "$VENV_IS_EXTERNAL" == "true" ]]; then
-    set +e
-    if [[ -f $HOME/.bashrc ]]; then
-        if ! grep -q "source $VENV_PATH/bin/activate" "$HOME/.bashrc" 2>/dev/null; then
-            log_step "Configuring Bash to auto-activate virtual environment"
-            echo "source $VENV_PATH/bin/activate" >>"$HOME/.bashrc" || log_warning "Failed to update .bashrc"
+    LEGACY_ACTIVATE="source $VENV_PATH/bin/activate"
+    LEGACY_ENV_BLOCK="# DevContainer environment overrides (.env → .env.local, later wins)"
+    for RC_FILE in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [[ -f $RC_FILE ]] || continue
+        if grep -qxF "$LEGACY_ACTIVATE" "$RC_FILE"; then
+            sed -i "\|^${LEGACY_ACTIVATE}\$|d" "$RC_FILE"
         fi
-        # Source .env files so their variables are available in every interactive terminal,
-        # equivalent to containerEnv variables set in devcontainer.json.
-        # .env.local is sourced after .env so user overrides win.
-        if ! grep -q "devcontainer/.env" "$HOME/.bashrc" 2>/dev/null; then
-            log_step "Configuring Bash to source DevContainer environment files"
-            cat >>"$HOME/.bashrc" <<'EOF'
-# DevContainer environment overrides (.env → .env.local, later wins)
-# set -a auto-exports all variables so child processes (hass, pytest, uv) see them too.
-if [ -n "$WORKSPACE_ROOT" ]; then
-    set -a
-    [ -f "$WORKSPACE_ROOT/.devcontainer/.env" ] && source "$WORKSPACE_ROOT/.devcontainer/.env"
-    [ -f "$WORKSPACE_ROOT/.devcontainer/.env.local" ] && source "$WORKSPACE_ROOT/.devcontainer/.env.local"
-    set +a
-fi
-EOF
+        if grep -qxF "$LEGACY_ENV_BLOCK" "$RC_FILE"; then
+            sed -i "/^${LEGACY_ENV_BLOCK//./\\.}\$/,/^fi\$/d" "$RC_FILE"
         fi
+    done
+fi
+
+# HA_VERSION=latest or beta builds and activates that environment instead of minimum; HA_ENVS adds more either way.
+# custom is pinned by hand only, and the active environment never changes under a running Home Assistant.
+BASE_SLOT=minimum
+case "${HA_VERSION:-}" in
+latest | beta) BASE_SLOT=$HA_VERSION ;;
+"") ;;
+*)
+    HACS_TRAIN=$(ha_release_train "$(hacs_min_ha_version 2>/dev/null || true)")
+    if [[ ! $HA_VERSION =~ ^[0-9]+\.[0-9]+(\.0)?$ || $(ha_release_train "$HA_VERSION") != "$HACS_TRAIN" ]]; then
+        log_warning "HA_VERSION=$HA_VERSION picks no environment: minimum follows hacs.json — for one particular release run: script/ha-env add custom $HA_VERSION"
     fi
-    if [[ -f $HOME/.zshrc ]]; then
-        if ! grep -q "source $VENV_PATH/bin/activate" "$HOME/.zshrc"; then
-            log_step "Configuring ZSH to auto-activate virtual environment"
-            echo "source $VENV_PATH/bin/activate" >>"$HOME/.zshrc" || log_warning "Failed to update .zshrc"
-        fi
-        if ! grep -q "devcontainer/.env" "$HOME/.zshrc" 2>/dev/null; then
-            log_step "Configuring ZSH to source DevContainer environment files"
-            cat >>"$HOME/.zshrc" <<'EOF'
-# DevContainer environment overrides (.env → .env.local, later wins)
-# set -a auto-exports all variables so child processes (hass, pytest, uv) see them too.
-if [ -n "$WORKSPACE_ROOT" ]; then
-    set -a
-    [ -f "$WORKSPACE_ROOT/.devcontainer/.env" ] && source "$WORKSPACE_ROOT/.devcontainer/.env"
-    [ -f "$WORKSPACE_ROOT/.devcontainer/.env.local" ] && source "$WORKSPACE_ROOT/.devcontainer/.env.local"
-    set +a
+    ;;
+esac
+CURRENT=$(ha_current_slot)
+ACTIVE=$CURRENT
+[[ $BASE_SLOT == minimum ]] || ACTIVE=$BASE_SLOT
+if [[ -n $CURRENT && $ACTIVE != "$CURRENT" ]] && ha_running; then
+    log_warning "Staying on $CURRENT while Home Assistant runs — switch afterwards with: script/ha-env use $ACTIVE"
+    ACTIVE=$CURRENT
 fi
-EOF
-        fi
+log_header "Home Assistant environment: $BASE_SLOT"
+ha_envs_refresh "$BASE_SLOT" || [[ $? -eq 2 ]] || exit 1
+read -ra SLOTS <<<"${HA_ENVS:-}"
+for SLOT in "${SLOTS[@]}"; do
+    [[ $SLOT != "$BASE_SLOT" ]] || continue
+    if [[ $SLOT == custom ]]; then
+        log_warning "HA_ENVS cannot hold custom — pin it by hand: script/ha-env add custom <version>"
+        continue
     fi
-    set -e
-fi
+    log_header "Home Assistant environment: $SLOT"
+    ha_envs_refresh "$SLOT" || [[ $? -eq 2 ]] || log_warning "Skipping $SLOT — the other environments are unaffected"
+done
 
-log_header "Installing development dependencies"
-uv pip install --requirement requirements_dev.txt
+[[ -n $ACTIVE && -n $(ha_envs_version_of "$ACTIVE") ]] || ACTIVE=$BASE_SLOT
+ha_envs_use "$ACTIVE"
+ha_envs_prune
+log_success "Active Home Assistant environment: $ACTIVE ($(ha_envs_version_of "$ACTIVE"))"
 
-log_header "Installing test dependencies"
-uv pip install --requirement requirements_test.txt
-
-log_header "Installing runtime dependencies"
-if [[ -s requirements.txt ]] && grep -qv '^#' requirements.txt | grep -q '[^[:space:]]'; then
-    uv pip install --requirement requirements.txt
-else
-    log_info "No runtime dependencies defined (this is normal for blueprints)"
-fi
-
-if [[ -f requirements.local.txt ]]; then
-    log_header "Installing local extra dependencies (requirements.local.txt)"
-    uv pip install --requirement requirements.local.txt
-fi
-
-if [[ -n "${HA_VERSION:-}" ]]; then
-    # Explicit HA_VERSION from environment — use exactly as specified
-    resolve_ha_version HA_VERSION "$HA_VERSION"
-else
-    # Read from hacs.json: treat YEAR.MONTH.0 as YEAR.MONTH so the latest
-    # stable patch is installed (hacs.json records minimum version, not pin)
-    HA_VERSION=$(grep '"homeassistant"' hacs.json | head -1 | sed 's/.*"homeassistant"\s*:\s*"\([^"]*\)".*/\1/')
-    if [[ -z "$HA_VERSION" ]]; then
-        log_error "HA_VERSION not set and could not be determined from hacs.json"
-        exit 1
-    fi
-    if [[ "$HA_VERSION" =~ ^[0-9]{4}\.[0-9]+\.0$ ]]; then
-        HA_VERSION="${HA_VERSION%.*}" # "2026.4.0" → "2026.4" → latest patch
-    fi
-    resolve_ha_version HA_VERSION "$HA_VERSION"
-fi
-
-HA_CORE_BASE_URL="https://raw.githubusercontent.com/home-assistant/core/${HA_VERSION}"
-
-# Recreate the venv if the installed HA version no longer matches the target.
-# This handles the cached-volume case: the venv persists across rebuilds, so without
-# this check an HA version bump would silently run on the old installation.
-# The marker file ($VENV_PATH/.ha-version) is written after a successful install below.
-HA_VERSION_MARKER="$VENV_PATH/.ha-version"
-if [[ -f "$HA_VERSION_MARKER" ]]; then
-    CACHED_HA_VERSION=$(cat "$HA_VERSION_MARKER")
-    if [[ "$CACHED_HA_VERSION" != "$HA_VERSION" ]]; then
-        log_warning "HA version changed ($CACHED_HA_VERSION → $HA_VERSION) — recreating virtual environment"
-        # Use find instead of rm -rf: the path may be a named Docker volume mount point
-        # which cannot be removed itself — only its contents can be deleted.
-        find "$VENV_PATH" -mindepth 1 -delete
-        uv venv "$VENV_PATH"
-        # shellcheck source=/dev/null
-        source "$VENV_PATH/bin/activate"
-    fi
-fi
-
-log_header "Installing Home Assistant ${HA_VERSION} runtime dependencies"
-mkdir -p "/tmp/homeassistant"
-_download "${HA_CORE_BASE_URL}/homeassistant/package_constraints.txt" "/tmp/homeassistant/package_constraints.txt" # constraints for requirements files
-_download "${HA_CORE_BASE_URL}/requirements.txt" "/tmp/requirements.txt"                                           # required by requirements_all.txt
-_download "${HA_CORE_BASE_URL}/requirements_all.txt" "/tmp/requirements_all.txt"
-uv pip install --requirement "/tmp/requirements_all.txt"
-
-log_header "Installing Home Assistant ${HA_VERSION} test dependencies"
-_download "${HA_CORE_BASE_URL}/requirements_test_pre_commit.txt" "/tmp/requirements_test_pre_commit.txt" # required by requirements_test.txt
-_download "${HA_CORE_BASE_URL}/requirements_test.txt" "/tmp/requirements_test.txt"
-uv pip install --requirement "/tmp/requirements_test.txt"
-
-log_header "Installing Home Assistant ${HA_VERSION} core"
-uv pip install "homeassistant==${HA_VERSION}"
-
-# Record the installed HA version so bootstrap can detect version changes on subsequent runs.
-echo "$HA_VERSION" >"$HA_VERSION_MARKER"
-
-set +e
-rm -rf /tmp/requirements*.txt /tmp/homeassistant/ || log_warning "Failed to clean up temporary files"
-set -e
+activate_venv
 
 log_header "Installing Node.js dependencies"
 if command -v npm >/dev/null 2>&1; then
@@ -257,7 +158,7 @@ if command -v npm >/dev/null 2>&1; then
     # Docker creates named volumes owned by root — fix ownership before npm ci writes into it.
     if [[ -d node_modules && "$(stat -c %U node_modules 2>/dev/null)" == "root" ]]; then
         log_step "Fixing node_modules ownership (Docker volume created as root)"
-        sudo chown "$(id -un):$(id -gn)" node_modules
+        sudo -n chown "$(id -un):$(id -gn)" node_modules
     fi
     npm ci --silent
 else
@@ -265,19 +166,41 @@ else
     log_info "Install Node.js to enable: prettier, markdownlint-cli2"
 fi
 
-# Only install pre-commit hooks in local development, not in CI
+# Only install git hooks in local development, not in CI
 # GITHUB_ACTIONS is always set to "true" in GitHub Actions environments
-if [[ -d ".git" && -z "${GITHUB_ACTIONS:-}" ]]; then
-    log_header "Installing pre-commit hooks"
-    set +e
-    pre-commit install || log_warning "Failed to install pre-commit hooks"
-    set -e
+if git rev-parse --git-dir >/dev/null 2>&1 && [[ -z "${GITHUB_ACTIONS:-}" ]]; then
+    log_header "Installing git hooks"
+    # Do not downgrade a failure here to a warning that scrolls past unnoticed:
+    # a silent failure leaves the repo with no hooks at all, so Ruff, yamllint
+    # and codespell never run on commit and nobody finds out until CI fails.
+    if ! command -v prek >/dev/null 2>&1; then
+        log_error "prek not found — hooks NOT installed"
+        log_info "Expected it from Home Assistant's requirements_test.txt; re-run this script after fixing the venv"
+        exit 1
+    fi
+    # Repositories bootstrapped before the switch carry a pre-commit-generated
+    # hook, which prek leaves alone unless told to overwrite. Overwrite only
+    # that one, so a hand-written hook still stops the install.
+    prek_install_args=()
+    if grep -qs "generated by pre-commit" .git/hooks/pre-commit; then
+        prek_install_args+=(--overwrite)
+    fi
+    if ! prek install "${prek_install_args[@]}"; then
+        log_error "prek install failed — hooks NOT installed"
+        exit 1
+    fi
+    log_success "Git hooks installed"
 else
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        log_info "Skipping pre-commit hooks (running in GitHub Actions)"
+        log_info "Skipping git hooks (running in GitHub Actions)"
     else
-        log_info "Skipping pre-commit hooks (not a Git repository)"
+        log_info "Skipping git hooks (not a Git repository)"
     fi
+fi
+
+if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
+    log_header "Installing agent plugins"
+    "$SCRIPT_DIR/agent-plugins" || log_warning "Agent plugins not installed — run script/setup/agent-plugins to see why"
 fi
 
 log_header "Pruning uv package cache"

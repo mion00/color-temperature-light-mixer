@@ -1,38 +1,47 @@
 #!/bin/bash
 
-# script/release-notes: Enhance release notes with GitHub Copilot CLI
+# script/release-notes: Rewrite the release notes for users with a coding agent
 #
 # Generates AI-enhanced release notes based on conventional commits and the
-# current release-please PR. Uses GitHub Copilot CLI in programmatic mode.
+# current release-please PR, with whichever coding agent CLI is installed:
+# Claude Code, Codex, GitHub Copilot or OpenCode (script/.lib/agent_cli.sh).
 # Collects rich context (commit bodies, file stats, code diffs) so the AI
 # can translate technical changes into user-friendly descriptions.
 #
 # Usage:
-#   ./script/release-notes [--apply|--interactive]
+#   ./script/release-notes [--prompt|--apply|--apply-file NOTES|--interactive]
 #
 # Examples:
 #   ./script/release-notes               # Print enhanced notes to stdout
-#   ./script/release-notes --apply       # Update the open release-please PR
-#   ./script/release-notes --interactive # Launch Copilot CLI with context
+#   ./script/release-notes --apply       # Rewrite the notes in the open release-please PR
+#   ./script/release-notes --interactive # Open an agent session with the context
+#
+# From inside an agent session, for a fresh subagent:
+#   ./script/release-notes --prompt            # Write the prompt; prints only its path on stdout
+#   ./script/release-notes --apply-file NOTES  # Put that subagent's notes into the release PR
 #
 # Environment:
-#   COPILOT_MODEL            Override AI model (default: claude-sonnet-4.6)
+#   AGENT_CLI                claude, codex, copilot or opencode (default: see agent_resolve in agent_cli.sh)
+#   AGENT_MODEL              Model for that CLI (default: the CLI's own; for copilot, COPILOT_MODEL)
 #   RELEASE_NOTES_DIFF_MAX   Max bytes for code diff context (default: 8000)
+#
+# Reads .github/release-notes/prompt.md, when present, into the prompt.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CALLER_DIR="$PWD"
 cd "$SCRIPT_DIR/.."
 
 # shellcheck source=script/.lib/output.sh
 source "$SCRIPT_DIR/.lib/output.sh"
 
 MODE="${1:-stdout}"
-SCRATCH_DIR=".ai-scratch"
+SCRATCH_DIR=".agents/scratch"
 
 # Configuration
-COPILOT_MODEL="${COPILOT_MODEL:-claude-sonnet-4.6}"
 DIFF_MAX_BYTES="${RELEASE_NOTES_DIFF_MAX:-8000}"
+PROJECT_PROMPT=".github/release-notes/prompt.md"
 
 # Integration domain — auto-detected from custom_components/
 # shellcheck source=script/.lib/integration.sh
@@ -60,17 +69,34 @@ USER_FACING_PATHS=(
 # Prerequisites
 # ---------------------------------------------------------------------------
 
-# Resolve copilot binary — prefer node_modules/.bin, then PATH
-COPILOT_BIN=""
-if [[ -x "$PWD/node_modules/.bin/copilot" ]]; then
-    COPILOT_BIN="$PWD/node_modules/.bin/copilot"
-elif command -v copilot >/dev/null 2>&1; then
-    COPILOT_BIN="copilot"
-fi
+# shellcheck source=script/.lib/agent_cli.sh
+source "$SCRIPT_DIR/.lib/agent_cli.sh"
 
-if [[ -z "$COPILOT_BIN" ]]; then
-    die "GitHub Copilot CLI not found. Install with: npm install @github/copilot"
-fi
+USAGE="Usage: script/release-notes [--prompt|--apply|--apply-file NOTES|--interactive]"
+case "$MODE" in
+--prompt)
+    # stdout carries only the prompt's path, so a caller can take it with $(...).
+    exec 3>&1 1>&2
+    ;;
+--apply-file)
+    NOTES_PATH="${2:-}"
+    [[ -z "$NOTES_PATH" || "$NOTES_PATH" == /* ]] || NOTES_PATH="$CALLER_DIR/$NOTES_PATH"
+    if [[ -z "$NOTES_PATH" || ! -s "$NOTES_PATH" ]]; then
+        die "$USAGE — NOTES holds the rewritten notes"
+    fi
+    ;;
+--interactive)
+    agent_resolve --any || die "No agent CLI to use — see above, or set AGENT_CLI"
+    ;;
+--apply | stdout)
+    agent_resolve || die "No agent CLI to use — see above, or set AGENT_CLI"
+    ;;
+*)
+    log_error "Unknown option: $MODE"
+    echo "$USAGE"
+    exit 1
+    ;;
+esac
 
 require_command jq "apt-get install jq"
 require_command gh "https://cli.github.com/"
@@ -159,78 +185,123 @@ build_user_facing_diff() {
 }
 
 # ---------------------------------------------------------------------------
+# Helper: The sections the notes use — release-please's visible ones, so the
+# rewritten notes keep the headings CHANGELOG.md uses, apart from the breaking one
+# ---------------------------------------------------------------------------
+
+build_sections() {
+    local type section
+    echo "## OUTPUT FORMAT"
+    echo ""
+    echo "Use these sections with ### (H3) headings, in this order:"
+    echo ""
+    echo "- ### ⚠️ Backward-incompatible changes"
+    echo "  (Changes that need the user to act, such as reconfiguring the integration or updating an automation)"
+    while IFS=$'\t' read -r type section; do
+        echo ""
+        echo "- ### $section"
+        case "$type" in
+        feat) echo "  (New sensors, config options, service actions — things users can now DO)" ;;
+        fix) echo "  (Bugs users experienced — describe what was wrong and what is now correct)" ;;
+        perf) echo "  (Performance or reliability improvements users would notice)" ;;
+        build) echo "  (Updated libraries users get with this release — say what that fixes or enables for them)" ;;
+        esac
+    done < <(jq -r '.packages["."]["changelog-sections"][]? | select(.hidden != true) | [.type, .section] | @tsv' \
+        release-please-config.json 2>/dev/null)
+    echo ""
+}
+
+# ---------------------------------------------------------------------------
 # Gather context
 # ---------------------------------------------------------------------------
 
+gather_git_context() {
+    # Current version from manifest
+    CURRENT_VERSION=$("$SCRIPT_DIR/version")
+    log_info "Current version: $CURRENT_VERSION"
+
+    # Integration display name from manifest
+    INTEGRATION_TITLE=$(jq -r --arg d "$DOMAIN" '.name // $d' "$COMPONENT_DIR/manifest.json" 2>/dev/null || echo "$DOMAIN")
+    log_info "Integration title: $INTEGRATION_TITLE"
+
+    # Find last tag (fallback to initial commit if none exists)
+    LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+    if [[ -n "$LAST_TAG" ]]; then
+        RANGE="$LAST_TAG..HEAD"
+        log_info "Changes since tag: $LAST_TAG"
+    else
+        FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
+        RANGE="$FIRST_COMMIT..HEAD"
+        log_info "No previous tag found — using all commits"
+    fi
+
+    # Rich commit log (subject + body + file stats)
+    log_step "Collecting commit details..."
+    COMMIT_CONTEXT=$(build_commit_context "$RANGE")
+    COMMIT_COUNT=$(git rev-list --count "$RANGE" 2>/dev/null || echo "0")
+    log_info "Commits in range: $COMMIT_COUNT"
+
+    # Final net file changes (source of truth when commits revert each other)
+    FINAL_FILE_CHANGES=$(git diff --name-status "$RANGE" 2>/dev/null || echo "(none)")
+
+    # Revert commits (chronology hints for the AI)
+    REVERT_COMMITS=$(git log --reverse --pretty=format:"%h | %s" "$RANGE" 2>/dev/null |
+        grep -Ei '\|[[:space:]]*revert\b' || echo "(none)")
+
+    # User-facing code diff (token-limited)
+    log_step "Building code diff for user-facing paths..."
+    USER_DIFF=$(build_user_facing_diff "$RANGE")
+    if [[ -z "$USER_DIFF" ]]; then
+        USER_DIFF="(no user-facing code changes)"
+    fi
+
+}
+
+# The open release-please PR, if any
+find_release_pr() {
+    PR_JSON=""
+    PR_BODY=""
+    PR_NUMBER=""
+    if gh auth status >/dev/null 2>&1; then
+        PR_JSON=$(gh pr list --label "autorelease: pending" --json number,body --limit 1 2>/dev/null || echo "[]")
+        PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number // empty' 2>/dev/null || true)
+        if [[ -n "$PR_NUMBER" ]]; then
+            PR_BODY=$(echo "$PR_JSON" | jq -r '.[0].body // empty' 2>/dev/null || true)
+            log_info "Found release-please PR: #$PR_NUMBER"
+        else
+            log_info "No open release-please PR found"
+        fi
+    else
+        log_warning "GitHub CLI not authenticated — skipping PR lookup"
+    fi
+
+}
+
+# Commits whose trailer keeps them out of the notes
+gather_skipped_commits() {
+    SKIPPED_COMMITS=""
+    while IFS= read -r commit_hash; do
+        if commit_should_skip "$commit_hash"; then
+            SKIPPED_COMMITS+="$(git show -s --format='%h | %s' "$commit_hash")"$'\n'
+        fi
+    done < <(git rev-list --reverse "$RANGE")
+    if [[ -z "$SKIPPED_COMMITS" ]]; then
+        SKIPPED_COMMITS="(none)"
+    fi
+
+}
+
 log_header "Gathering release context"
-
-# Current version from manifest
-CURRENT_VERSION=$("$SCRIPT_DIR/version")
-log_info "Current version: $CURRENT_VERSION"
-
-# Integration display name from manifest
-INTEGRATION_TITLE=$(python3 -c "import json; print(json.load(open('$COMPONENT_DIR/manifest.json')).get('name', '$DOMAIN'))" 2>/dev/null || echo "$DOMAIN")
-log_info "Integration title: $INTEGRATION_TITLE"
-
-# Find last tag (fallback to initial commit if none exists)
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
-if [[ -n "$LAST_TAG" ]]; then
-    RANGE="$LAST_TAG..HEAD"
-    log_info "Changes since tag: $LAST_TAG"
-else
-    FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
-    RANGE="$FIRST_COMMIT..HEAD"
-    log_info "No previous tag found — using all commits"
+# --apply-file needs only the PR; --prompt never reads it.
+if [[ "$MODE" != --apply-file ]]; then
+    gather_git_context
+    gather_skipped_commits
 fi
-
-# Rich commit log (subject + body + file stats)
-log_step "Collecting commit details..."
-COMMIT_CONTEXT=$(build_commit_context "$RANGE")
-COMMIT_COUNT=$(git rev-list --count "$RANGE" 2>/dev/null || echo "0")
-log_info "Commits in range: $COMMIT_COUNT"
-
-# Final net file changes (source of truth when commits revert each other)
-FINAL_FILE_CHANGES=$(git diff --name-status "$RANGE" 2>/dev/null || echo "(none)")
-
-# Revert commits (chronology hints for the AI)
-REVERT_COMMITS=$(git log --reverse --pretty=format:"%h | %s" "$RANGE" 2>/dev/null |
-    grep -Ei '\|[[:space:]]*revert\b' || echo "(none)")
-
-# User-facing code diff (token-limited)
-log_step "Building code diff for user-facing paths..."
-USER_DIFF=$(build_user_facing_diff "$RANGE")
-if [[ -z "$USER_DIFF" ]]; then
-    USER_DIFF="(no user-facing code changes)"
-fi
-
-# Try to find open release-please PR
-PR_JSON=""
 PR_BODY=""
 PR_NUMBER=""
-if gh auth status >/dev/null 2>&1; then
-    PR_JSON=$(gh pr list --label "autorelease: pending" --json number,body --limit 1 2>/dev/null || echo "[]")
-    PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number // empty' 2>/dev/null || true)
-    if [[ -n "$PR_NUMBER" ]]; then
-        PR_BODY=$(echo "$PR_JSON" | jq -r '.[0].body // empty' 2>/dev/null || true)
-        log_info "Found release-please PR: #$PR_NUMBER"
-    else
-        log_info "No open release-please PR found"
-    fi
-else
-    log_warning "GitHub CLI not authenticated — skipping PR lookup"
+if [[ "$MODE" != --prompt ]]; then
+    find_release_pr
 fi
-
-# Skipped commits summary
-SKIPPED_COMMITS=""
-while IFS= read -r commit_hash; do
-    if commit_should_skip "$commit_hash"; then
-        SKIPPED_COMMITS+="$(git show -s --format='%h | %s' "$commit_hash")"$'\n'
-    fi
-done < <(git rev-list --reverse "$RANGE")
-if [[ -z "$SKIPPED_COMMITS" ]]; then
-    SKIPPED_COMMITS="(none)"
-fi
-
 log_success "Context gathered"
 
 # ---------------------------------------------------------------------------
@@ -242,7 +313,7 @@ build_prompt() {
 You are writing a GitHub release announcement for a Home Assistant custom integration.
 
 ## YOUR AUDIENCE
-Home Assistant users — people who install custom integrations via HACS, build automations,
+Home Assistant users — people who install custom integrations from the Marketplace, build automations,
 and configure dashboards. They are NOT developers. They do not understand terms like:
 coordinator, entity, async, refactor, TypedDict, module, class, dataclass, config entry,
 state machine, MRO, or any Python/software engineering jargon.
@@ -252,14 +323,14 @@ state machine, MRO, or any Python/software engineering jargon.
 **Rule 1 — No jargon.**
 NEVER use technical terms. Always rephrase as a user experience.
   ❌ "Refactored coordinator error handling with exponential backoff"
-  ✅ "The integration now recovers more gracefully when your device is temporarily unreachable"
+  ✅ "When your device is unreachable for a while, the integration now reconnects on its own"
 
 **Rule 2 — Second person, present tense.**
 Write: "You can now...", "Your automations will...", "The setup wizard now..."
 
 **Rule 3 — Bug fixes: describe the SYMPTOM, not the cause.**
   ❌ "Fix timezone-aware datetime comparison at resolution boundary"
-  ✅ "Fixed: Sensor data could show incorrect values when switching to/from daylight saving time"
+  ✅ "Sensors no longer show wrong values on the night daylight saving time starts or ends"
 
 **Rule 4 — New features: lead with what the user can DO.**
   ❌ "Add {ClassPrefix}FanSpeedSensor with EntityDescription"
@@ -274,22 +345,24 @@ Do NOT list every commit as a separate bullet. Group related changes.
 **Rule 7 — Imagine explaining to your neighbor.**
 Before writing each bullet, ask: "Would someone who just uses Home Assistant understand this?"
 
-## OUTPUT FORMAT
+**Rule 8 — Home Assistant's own words.**
+The notes appear in Home Assistant's update dialog, so they follow its UI text style: American English, "Home
+Assistant" in full (never "HA"), "select" not "click", no "e.g.", "i.e." or "etc." (use "for example", "such as"),
+entity IDs and file names in backticks. One thing has one name: "action", not "service"; "integration", not
+"component"; "app", not "add-on"; "dashboard", not "Lovelace"; "backward-incompatible change", not "breaking change".
 
-Use these sections with ### (H3) headings:
+**Rule 9 — Precise, not loud.**
+- Concrete beats adjectives: name the sensor, the setting, the situation, the number. "Loads in 2 seconds instead of
+  10" over "much faster". If the commits give no such detail, state the change plainly instead of padding it.
+- No hype: never "awesome", "amazing", "exciting", "seamless", "robust", "powerful", "game-changing".
+- State it; do not hedge with "might", "should now" or "hopefully" unless the change really is uncertain.
+- One point per bullet. No closing summary.
 
-- ### ⚠️ Breaking Changes
-  (Changes that require user action — reconfiguration, removal of automations, etc.)
+PROMPT_HEADER
 
-- ### 🎉 What's New
-  (New sensors, config options, service actions — things users can now DO)
+    build_sections
 
-- ### 🐛 Fixed
-  (Bugs users experienced — describe what was wrong and what is now correct)
-
-- ### ⚡ Improved
-  (Performance or reliability improvements users would notice)
-
+    cat <<'PROMPT_RULES'
 Skip any section that has no content.
 Do NOT include a version header — the release system adds that.
 Do NOT include commit hashes, PR numbers, or links.
@@ -312,7 +385,16 @@ Output ONLY the markdown body, nothing else.
 - utils/, const.py, data.py = Internal (skip unless user-facing effect) → SKIP
 - script/, .github/, docs/, tests/ = Developer-only → SKIP
 
-PROMPT_HEADER
+PROMPT_RULES
+
+    local project_text=""
+    [[ -f "$PROJECT_PROMPT" ]] && project_text="$(<"$PROJECT_PROMPT")"
+    if [[ -n "${project_text//[[:space:]]/}" ]]; then
+        printf '## ABOUT THIS INTEGRATION — FROM ITS MAINTAINER\n'
+        printf 'On wording and content this section wins over the rules above. The output format stays as given,\n'
+        printf 'apart from one # title line at the top when this section asks for it.\n\n'
+        printf '%s\n\n' "$project_text"
+    fi
 
     # Dynamic context section
     cat <<PROMPT_CONTEXT
@@ -376,7 +458,8 @@ $USER_DIFF
 
 ---
 
-Output ONLY the release notes. Start directly with the first ### section.
+Output ONLY the release notes. Start directly with the first ### section, or with a # title if the maintainer's
+section asks for one.
 PROMPT_DIFF
 }
 
@@ -384,81 +467,86 @@ PROMPT_DIFF
 # Execute based on mode
 # ---------------------------------------------------------------------------
 
-run_copilot() {
-    local prompt_file
+run_agent() {
+    local prompt_file result=0
     prompt_file=$(mktemp)
     build_prompt >"$prompt_file"
 
-    log_info "Using model: $COPILOT_MODEL"
-
-    local result=0
-    "$COPILOT_BIN" --model "$COPILOT_MODEL" \
-        --allow-tool='shell(git)' \
-        --allow-tool='shell(gh)' \
-        --deny-tool='write' \
-        --deny-tool='shell(rm)' \
-        <"$prompt_file" || result=$?
-
+    log_info "Using $AGENT_NAME${AGENT_MODEL:+ with model $AGENT_MODEL}" >&2
+    agent_prompt "$prompt_file" || result=$?
     rm -f "$prompt_file"
-    return "$result"
+
+    if [[ $result -ne 0 ]]; then
+        echo "" >&2
+        die "$AGENT_NAME failed — is it signed in? Another CLI: AGENT_CLI=<name>"
+    fi
+}
+
+# apply_notes FILE: put the notes in FILE under the version heading of the release PR, as release-please reads it back.
+apply_notes() {
+    local merged
+    if ! merged=$(python3 "$SCRIPT_DIR/.lib/release_notes_body.py" <(printf '%s\n' "$PR_BODY") "$1"); then
+        die "PR #$PR_NUMBER left unchanged — release-please could not read the new body back"
+    fi
+
+    log_header "Updating PR #$PR_NUMBER"
+    printf '%s\n' "$merged" | gh pr edit "$PR_NUMBER" --body-file -
+    log_success "Release notes updated on PR #$PR_NUMBER"
+}
+
+require_release_pr() {
+    if [[ -z "$PR_NUMBER" ]]; then
+        die "No open release-please PR found. Cannot apply."
+    fi
 }
 
 run_hook "release-notes" "pre"
 
 case "$MODE" in
+--prompt)
+    mkdir -p "$SCRATCH_DIR"
+    PROMPT_FILE="$PWD/$SCRATCH_DIR/release-notes-prompt.md"
+    build_prompt >"$PROMPT_FILE"
+    log_success "Prompt written — hand it to a fresh agent, then: script/release-notes --apply-file <notes>"
+    echo "$PROMPT_FILE" >&3
+    ;;
+
+--apply-file)
+    require_release_pr
+    apply_notes "$NOTES_PATH"
+    ;;
+
 --interactive)
-    log_header "Launching Copilot CLI (interactive mode)"
+    log_header "Launching $AGENT_NAME (interactive mode)"
     mkdir -p "$SCRATCH_DIR"
 
     CONTEXT_FILE="$SCRATCH_DIR/release-notes-context.md"
     build_prompt >"$CONTEXT_FILE"
     log_info "Context written to $CONTEXT_FILE"
-    log_info "Using model: $COPILOT_MODEL"
     log_info "Starting interactive session — reference the context file above"
     log_separator
     echo ""
-    exec "$COPILOT_BIN" --model "$COPILOT_MODEL"
+    agent_session
     ;;
 
 --apply)
-    if [[ -z "$PR_NUMBER" ]]; then
-        die "No open release-please PR found. Cannot apply."
-    fi
-
+    require_release_pr
     log_header "Generating enhanced release notes"
 
     TEMP_OUTPUT=$(mktemp)
-    if ! run_copilot >"$TEMP_OUTPUT" 2>/dev/null; then
-        rm -f "$TEMP_OUTPUT"
-        die "Copilot CLI failed — check authentication with: copilot"
+    trap 'rm -f "$TEMP_OUTPUT"' EXIT
+    run_agent >"$TEMP_OUTPUT"
+    if [[ ! -s "$TEMP_OUTPUT" ]]; then
+        die "$AGENT_NAME returned empty output"
     fi
-
-    ENHANCED=$(cat "$TEMP_OUTPUT")
-    rm -f "$TEMP_OUTPUT"
-
-    if [[ -z "$ENHANCED" ]]; then
-        die "Copilot CLI returned empty output"
-    fi
-
-    log_header "Updating PR #$PR_NUMBER"
-    gh pr edit "$PR_NUMBER" --body "$ENHANCED"
-    log_success "Release notes updated on PR #$PR_NUMBER"
+    apply_notes "$TEMP_OUTPUT"
     ;;
 
-stdout | "")
+stdout)
     log_header "Generating enhanced release notes"
     log_separator
     echo ""
-    if ! run_copilot; then
-        echo "" >&2
-        die "Copilot CLI failed — check authentication with: copilot"
-    fi
-    ;;
-
-*)
-    log_error "Unknown option: $MODE"
-    echo "Usage: script/release-notes [--apply|--interactive]"
-    exit 1
+    run_agent
     ;;
 esac
 
